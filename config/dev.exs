@@ -25,8 +25,17 @@ url_scheme = System.get_env("URL_SCHEME") || "http"
 # listen port to appear in the URL, which is the default path here.
 url_port = if url_scheme == "https", do: 443, else: port
 
+# A proxy on another host cannot reach a loopback listener, so LISTEN_IP opens
+# the dev server to other interfaces, as it does in production. Unset, it stays
+# on 127.0.0.1 so a dev server is never exposed by default.
+listen_ip =
+  case :inet.parse_address(String.to_charlist(System.get_env("LISTEN_IP") || "127.0.0.1")) do
+    {:ok, ip} -> ip
+    {:error, :einval} -> raise "Invalid LISTEN_IP: #{inspect(System.get_env("LISTEN_IP"))}"
+  end
+
 config :tymeslot, TymeslotWeb.Endpoint,
-  http: [ip: {127, 0, 0, 1}, port: port],
+  http: [ip: listen_ip, port: port],
   url: [host: host, port: url_port, scheme: url_scheme],
   # The proxied origin has to be allowed too, or the LiveView socket is rejected
   # under the very domain PHX_HOST just enabled. Deduplicated so the default case
