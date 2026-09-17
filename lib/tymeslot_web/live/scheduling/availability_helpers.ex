@@ -14,7 +14,8 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
   alias Tymeslot.Integrations.Calendar.Events, as: CalendarEvents
   alias Tymeslot.Meetings.BookingLimits.Checker
   alias Tymeslot.Profiles
-  alias Tymeslot.Utils.ContextUtils
+  alias Tymeslot.Scheduling.SharedAvailability
+  alias Tymeslot.Utils.{ContextUtils, DateTimeUtils}
 
   require Logger
 
@@ -87,34 +88,53 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
           )
         else
           # Regular flow for real users
-          with {:ok, events} <-
-                 CalendarEvents.get_calendar_events_from_context(
-                   date,
-                   organizer_user_id,
-                   context
-                 ),
-               duration_minutes <- parse_duration_minutes(duration) do
-            meeting_type = ContextUtils.get_from_context(context, :meeting_type)
-            schedule = Schedules.resolve_for(meeting_type, organizer_profile)
-
-            config =
-              schedule_config(
-                schedule,
-                meeting_type,
-                build_limit_checker(organizer_user_id, organizer_profile, context, date, date),
-                duration_minutes
-              )
-
-            Calculate.available_slots(
-              date,
-              duration_minutes,
-              user_timezone,
-              owner_timezone,
-              events,
-              config
-            )
-          end
+          regular_available_slots(
+            date,
+            duration,
+            {user_timezone, owner_timezone},
+            organizer_user_id,
+            organizer_profile,
+            context
+          )
         end
+      end
+    end
+  end
+
+  defp regular_available_slots(
+         date,
+         duration,
+         {user_timezone, owner_timezone},
+         organizer_user_id,
+         organizer_profile,
+         context
+       ) do
+    with {:ok, events} <-
+           CalendarEvents.get_calendar_events_from_context(date, organizer_user_id, context) do
+      duration_minutes = parse_duration_minutes(duration)
+      meeting_type = ContextUtils.get_from_context(context, :meeting_type)
+      schedule = Schedules.resolve_for(meeting_type, organizer_profile)
+      guests = shared_availability_guests(context)
+
+      config =
+        schedule
+        |> schedule_config(
+          meeting_type,
+          build_limit_checker(organizer_user_id, organizer_profile, context, date, date),
+          duration_minutes
+        )
+        |> SharedAvailability.strictest_policy(guests)
+
+      with {:ok, slots} <-
+             Calculate.available_slots(
+               date,
+               duration_minutes,
+               user_timezone,
+               owner_timezone,
+               events,
+               config
+             ) do
+        filter_for_guests(slots, date, duration_minutes, user_timezone, guests, config, context)
       end
     end
   end
@@ -173,6 +193,16 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
           duration_minutes
         )
 
+      shared_availability_guests(context) != [] ->
+        shared_range_availability(
+          user_id,
+          {start_date, end_date},
+          user_timezone,
+          organizer_profile,
+          context,
+          duration_minutes || 30
+        )
+
       true ->
         with {:ok, owner_timezone} <- get_owner_timezone(organizer_profile) do
           meeting_type = ContextUtils.get_from_context(context, :meeting_type)
@@ -213,6 +243,143 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
     end
   end
 
+  # Booking together with other users (`?with=`) answers the calendar grid day
+  # by day from the actual slot lists, because a day is only bookable when the
+  # host's slots and every guest's overlap. It stays off the range cache: that
+  # key knows nothing about the guests, and a combined map must never be served
+  # to the host's plain link or the other way round. The calendar events it
+  # reads are still the cached booking-window fetches, one per user.
+  defp shared_range_availability(
+         user_id,
+         {start_date, end_date},
+         user_timezone,
+         organizer_profile,
+         context,
+         duration_minutes
+       ) do
+    with {:ok, owner_timezone} <- get_owner_timezone(organizer_profile),
+         {:ok, events} <- booking_window_events(user_id, start_date, context) do
+      config =
+        shared_range_config(
+          user_id,
+          {start_date, end_date},
+          organizer_profile,
+          context,
+          duration_minutes
+        )
+
+      guests =
+        context
+        |> shared_availability_guests()
+        |> SharedAvailability.prefetch_schedule_data(start_date, end_date)
+
+      today = user_timezone |> DateTimeUtils.now_in_timezone() |> DateTime.to_date()
+      last_day = Date.add(today, Calculate.config_policy(config).max_advance_booking_days)
+
+      day = %{
+        timezones: {user_timezone, owner_timezone},
+        window: {today, last_day},
+        events: events,
+        config: config,
+        guests: guests,
+        context: context,
+        duration_minutes: duration_minutes
+      }
+
+      Enum.reduce_while(Date.range(start_date, end_date), {:ok, %{}}, fn date, {:ok, acc} ->
+        case shared_day_slots(date, day) do
+          {:ok, slots} -> {:cont, {:ok, Map.put(acc, Date.to_string(date), slots != [])}}
+          {:error, _reason} = error -> {:halt, error}
+        end
+      end)
+    end
+  end
+
+  defp shared_range_config(
+         user_id,
+         {start_date, end_date},
+         organizer_profile,
+         context,
+         duration_minutes
+       ) do
+    meeting_type = ContextUtils.get_from_context(context, :meeting_type)
+    schedule = Schedules.resolve_for(meeting_type, organizer_profile)
+
+    schedule
+    |> schedule_config(
+      meeting_type,
+      build_limit_checker(user_id, organizer_profile, context, start_date, end_date),
+      duration_minutes
+    )
+    |> SharedAvailability.strictest_policy(shared_availability_guests(context))
+    |> Calculate.prefetch_schedule_data(
+      schedule && schedule.id,
+      Date.add(start_date, -1),
+      Date.add(end_date, 1)
+    )
+  end
+
+  defp shared_day_slots(date, %{window: {today, last_day}} = day) do
+    if Date.compare(date, today) == :lt or Date.compare(date, last_day) == :gt do
+      {:ok, []}
+    else
+      {user_timezone, owner_timezone} = day.timezones
+
+      with {:ok, slots} <-
+             Calculate.available_slots(
+               date,
+               day.duration_minutes,
+               user_timezone,
+               owner_timezone,
+               day.events,
+               day.config
+             ) do
+        filter_for_guests(
+          slots,
+          date,
+          day.duration_minutes,
+          user_timezone,
+          day.guests,
+          day.config,
+          day.context
+        )
+      end
+    end
+  end
+
+  defp filter_for_guests(slots, date, duration_minutes, user_timezone, guests, config, context) do
+    SharedAvailability.filter_slots(
+      slots,
+      date,
+      duration_minutes,
+      user_timezone,
+      guests,
+      config,
+      &guest_events(&1, &2, context)
+    )
+  end
+
+  # A guest's calendar is read exactly as the host's is, from their own cached
+  # booking-window fetch; only the profile the fetch is made for differs. When
+  # a booking is being rescheduled, the invitation for it in the guest's
+  # calendar is not a conflict.
+  defp guest_events(guest, date, context) do
+    guest_context =
+      Map.merge(context || %{}, %{organizer_profile: guest.profile, meeting_type: nil})
+
+    with {:ok, events} <- booking_window_events(guest.user_id, date, guest_context) do
+      {:ok,
+       SharedAvailability.exclude_event(
+         events,
+         ContextUtils.get_from_context(context, :reschedule_meeting_uid)
+       )}
+    end
+  end
+
+  defp shared_availability_guests(context) do
+    ContextUtils.get_from_context(context, :shared_availability_guests) || []
+  end
+
   @doc """
   Starts the month availability fetch and marks the socket as loading.
 
@@ -227,7 +394,9 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
       demo_mode: Demo.demo_mode?(socket),
       organizer_profile: socket.assigns.organizer_profile,
       meeting_type: socket.assigns[:meeting_type],
-      debug_calendar_module: socket.private[:debug_calendar_module]
+      debug_calendar_module: socket.private[:debug_calendar_module],
+      shared_availability_guests: socket.assigns[:shared_availability_guests] || [],
+      reschedule_meeting_uid: socket.assigns[:reschedule_meeting_uid]
     }
 
     start_time = System.monotonic_time()

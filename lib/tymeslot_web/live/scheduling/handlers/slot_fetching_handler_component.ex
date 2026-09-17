@@ -70,7 +70,9 @@ defmodule TymeslotWeb.Live.Scheduling.Handlers.SlotFetchingHandlerComponent do
       demo_mode: Demo.demo_mode?(socket),
       organizer_profile: socket.assigns.organizer_profile,
       meeting_type: socket.assigns[:meeting_type],
-      debug_calendar_module: socket.private[:debug_calendar_module]
+      debug_calendar_module: socket.private[:debug_calendar_module],
+      shared_availability_guests: socket.assigns[:shared_availability_guests] || [],
+      reschedule_meeting_uid: socket.assigns[:reschedule_meeting_uid]
     }
 
     # Single resolver for display and submit, so the offered slots can't

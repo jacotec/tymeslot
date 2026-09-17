@@ -33,11 +33,13 @@ defmodule Tymeslot.Bookings.Reschedule do
   alias Tymeslot.Clock
   alias Tymeslot.Infrastructure.AvailabilityCache
   alias Tymeslot.Meetings.Approval
+  alias Tymeslot.Meetings.Guests
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Meetings.Scheduling
   alias Tymeslot.MeetingTypes
   alias Tymeslot.Notifications.{Events, Orchestrator}
   alias Tymeslot.Repo
+  alias Tymeslot.Scheduling.SharedAvailability
   alias Tymeslot.Utils.DateTimeUtils.Duration, as: UrlDuration
   alias Tymeslot.Workers.VideoSyncWorker
 
@@ -347,7 +349,14 @@ defmodule Tymeslot.Bookings.Reschedule do
     schedule_check_duration_minutes =
       schedule_check_duration_minutes(meeting_type, duration_minutes)
 
-    config = Policy.scheduling_config(organizer_user_id, meeting_type)
+    # Guests who are Tymeslot users (typically the users named in a `with` link
+    # when the booking was made) have to be free for the new time as well.
+    shared_availability_guests = shared_availability_guests(meeting)
+
+    config =
+      organizer_user_id
+      |> Policy.scheduling_config(meeting_type)
+      |> SharedAvailability.strictest_policy(shared_availability_guests)
 
     with {:ok, {start_datetime, end_datetime}} <-
            Validation.parse_meeting_times(
@@ -366,6 +375,13 @@ defmodule Tymeslot.Bookings.Reschedule do
              params.user_timezone,
              config,
              organizer_user_id
+           ),
+         :ok <-
+           validate_shared_availability(
+             shared_availability_guests,
+             meeting,
+             {date, start_datetime, end_datetime, params.user_timezone},
+             config
            ) do
       {:ok,
        %{
@@ -379,6 +395,47 @@ defmodule Tymeslot.Bookings.Reschedule do
 
       {:error, _reason} = error ->
         error
+    end
+  end
+
+  defp shared_availability_guests(meeting) do
+    meeting.id
+    |> Guests.list_for_meeting()
+    |> Enum.map(& &1.email)
+    |> SharedAvailability.resolve_from_guest_emails(meeting.organizer_user_id)
+  end
+
+  # The same rules a booking with these guests was created under: their
+  # schedule, calendar and hosted bookings, with the meeting's own invitation
+  # left out of their calendars. A calendar that cannot be read at all only
+  # refuses when it reported an incomplete busy set; a transport failure lets
+  # the reschedule through, as `Bookings.Create` does for a new booking.
+  defp validate_shared_availability([], _meeting, _slot, _config), do: :ok
+
+  defp validate_shared_availability(guests, meeting, {date, start_dt, end_dt, user_tz}, config) do
+    case SharedAvailability.validate_guests_available(
+           guests,
+           date,
+           start_dt,
+           end_dt,
+           user_tz,
+           config,
+           SharedAvailability.fresh_events_fetcher(meeting.uid)
+         ) do
+      :ok ->
+        :ok
+
+      {:error, reason}
+      when reason in [:slot_unavailable, :some_calendars_unavailable, :all_calendars_unavailable] ->
+        {:error, :slot_taken}
+
+      {:error, reason} ->
+        Logger.warning("Guest calendar availability check failed, proceeding with reschedule",
+          reason: inspect(reason),
+          meeting_id: meeting.id
+        )
+
+        :ok
     end
   end
 
