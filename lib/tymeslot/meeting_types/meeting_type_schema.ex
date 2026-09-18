@@ -16,6 +16,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
           name: String.t() | nil,
           description: String.t() | nil,
           duration_minutes: integer() | nil,
+          extra_durations_minutes: [integer()] | nil,
           slot_interval_minutes: integer() | nil,
           icon: String.t() | nil,
           is_active: boolean(),
@@ -48,6 +49,10 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     field(:name, :string)
     field(:description, :string)
     field(:duration_minutes, :integer)
+    # Further lengths the booker may pick instead of `duration_minutes`.
+    # Empty (or NULL, for rows predating the column) means the type offers
+    # its one duration only. See `Tymeslot.MeetingTypes.Durations`.
+    field(:extra_durations_minutes, {:array, :integer}, default: [])
     field(:slot_interval_minutes, :integer)
     field(:icon, :string)
     field(:is_active, :boolean, default: true)
@@ -135,6 +140,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
       :name,
       :description,
       :duration_minutes,
+      :extra_durations_minutes,
       :slot_interval_minutes,
       :icon,
       :is_active,
@@ -165,6 +171,7 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> validate_length(:name, Constraints.name_length_opts())
     |> validate_length(:description, max: Constraints.description_max_length())
     |> validate_number(:duration_minutes, Constraints.duration_minutes_opts())
+    |> validate_extra_durations()
     |> validate_number(:slot_interval_minutes, Constraints.slot_interval_minutes_opts())
     |> validate_number(:sort_order, greater_than_or_equal_to: 0)
     |> validate_number(:approval_window_hours, Constraints.approval_window_hours_opts())
@@ -187,6 +194,38 @@ defmodule Tymeslot.MeetingTypes.MeetingTypeSchema do
     |> foreign_key_constraint(:video_integration_id)
     |> foreign_key_constraint(:calendar_integration_id)
     |> foreign_key_constraint(:availability_schedule_id)
+  end
+
+  # Each extra duration obeys the same range as `duration_minutes`, none may
+  # repeat another (the booker would see the same choice twice), and together
+  # with `duration_minutes` they stay within the per-type maximum.
+  defp validate_extra_durations(changeset) do
+    extras = get_field(changeset, :extra_durations_minutes) || []
+    primary = get_field(changeset, :duration_minutes)
+    range = Constraints.duration_minutes_range()
+    max = Constraints.max_durations_per_meeting_type()
+
+    cond do
+      not Enum.all?(extras, &(is_integer(&1) and &1 in range)) ->
+        add_error(
+          changeset,
+          :extra_durations_minutes,
+          "must each be between %{min} and %{max} minutes",
+          min: range.first,
+          max: range.last
+        )
+
+      length(Enum.uniq([primary | extras])) != length(extras) + 1 ->
+        add_error(changeset, :extra_durations_minutes, "must not repeat a duration")
+
+      length(extras) + 1 > max ->
+        add_error(changeset, :extra_durations_minutes, "allows at most %{max} durations",
+          max: max
+        )
+
+      true ->
+        changeset
+    end
   end
 
   @doc """

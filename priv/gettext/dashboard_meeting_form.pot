@@ -857,3 +857,23 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "Times will be offered every %{minutes} minutes: %{examples}…"
 msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Additional duration (minutes)"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Bookers choose one of these durations before picking a time. Each booking lasts the duration chosen; the price is the same for all."
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Offer another duration"
+msgstr ""
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Remove this duration"
+msgstr ""

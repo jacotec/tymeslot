@@ -139,7 +139,7 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Components.OverviewComponent do
                           <.duration_card
                             duration={slug}
                             title={meeting_type.name}
-                            badge={LocalizationHelpers.format_duration(meeting_type.duration_minutes)}
+                            badge={LocalizationHelpers.format_duration_badge(meeting_type)}
                             description={meeting_type.description}
                             icon={meeting_type.icon || "hero-clock"}
                             selected={assigns[:selected_duration] == slug}

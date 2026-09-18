@@ -553,6 +553,7 @@ msgstr "Bitte füllen Sie alle Pflichtfelder aus"
 msgid "Please select a date to see available times"
 msgstr "Bitte wählen Sie ein Datum, um verfügbare Zeiten zu sehen"
 
+#: lib/tymeslot_web/themes/quill/scheduling/components/duration_component.ex
 #: lib/tymeslot_web/themes/quill/scheduling/components/overview_component.ex
 #, elixir-autogen, elixir-format
 msgid "Please select a meeting duration first"
@@ -873,9 +874,11 @@ msgstr "Weitere Details…"
 
 #: lib/tymeslot_web/themes/quill/scheduling/components/booking_component.ex
 #: lib/tymeslot_web/themes/quill/scheduling/components/custom_questions_component.ex
+#: lib/tymeslot_web/themes/quill/scheduling/components/duration_component.ex
 #: lib/tymeslot_web/themes/quill/scheduling/components/schedule_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/booking_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/custom_questions_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/duration_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/schedule_component.ex
 #, elixir-autogen, elixir-format
 msgid "back"
@@ -927,8 +930,10 @@ msgid "name"
 msgstr "Name"
 
 #: lib/tymeslot_web/themes/quill/scheduling/components/custom_questions_component.ex
+#: lib/tymeslot_web/themes/quill/scheduling/components/duration_component.ex
 #: lib/tymeslot_web/themes/quill/scheduling/components/overview_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/custom_questions_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/duration_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/overview_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/schedule_component.ex
 #, elixir-autogen, elixir-format
@@ -1844,3 +1849,14 @@ msgstr "Diese Anfrage hat sich geändert, seit diese Seite geöffnet wurde, und 
 #, elixir-autogen, elixir-format
 msgid "Preview mode: bookings made here are simulated. Nothing is saved or sent."
 msgstr "Vorschaumodus: Buchungen hier sind simuliert. Es wird nichts gespeichert oder versendet."
+
+#: lib/tymeslot_web/themes/shared/localization_helpers.ex
+#, elixir-autogen, elixir-format
+msgid "%{min}–%{max} min"
+msgstr "%{min}–%{max} Min."
+
+#: lib/tymeslot_web/themes/quill/scheduling/components/duration_component.ex
+#: lib/tymeslot_web/themes/rhythm/scheduling/components/duration_component.ex
+#, elixir-autogen, elixir-format
+msgid "How long should the meeting be?"
+msgstr "Wie lange soll der Termin dauern?"

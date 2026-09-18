@@ -27,6 +27,7 @@ defmodule Tymeslot.Bookings.Create do
   alias Tymeslot.Meetings.Guests
   alias Tymeslot.Meetings.Scheduling
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MeetingTypes.Durations
   alias Tymeslot.Profiles
   alias Tymeslot.Repo
   alias UUID
@@ -133,7 +134,8 @@ defmodule Tymeslot.Bookings.Create do
   defp prepare_booking_data(meeting_params, form_data) do
     # The duration used to compute the slot and to gate ScheduleCheck's
     # granularity comes from the resolved meeting type, never the request,
-    # whenever a type is known — mirroring Reschedule, which pins duration to
+    # whenever a type is known (the request only picks among the lengths the
+    # type offers, see `effective_duration_minutes/2`) — mirroring Reschedule, which pins duration to
     # the persisted meeting rather than trusting `params.duration`. Only an
     # unresolvable type (ad-hoc booking, or one that fails
     # `validate_meeting_type_active/1` a few steps later) falls back to the
@@ -197,9 +199,12 @@ defmodule Tymeslot.Bookings.Create do
     end
   end
 
-  defp effective_duration_minutes(_meeting_params, %{duration_minutes: minutes})
+  # A type offering several lengths takes the one the booker chose, but only
+  # one it offers: any other value (a crafted request) books its own duration,
+  # exactly as a single-length type always does.
+  defp effective_duration_minutes(meeting_params, %{duration_minutes: minutes} = meeting_type)
        when is_integer(minutes),
-       do: minutes
+       do: Durations.resolve(meeting_type, Durations.parse(Map.get(meeting_params, :duration)))
 
   defp effective_duration_minutes(meeting_params, _unresolved_type),
     do: TimeSlots.parse_duration(meeting_params.duration)

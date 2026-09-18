@@ -16,13 +16,29 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.Validation do
   end
 
   def validate_and_update_field("duration", value, metadata, acc_data, acc_errors) do
-    case MeetingSettingsInputValidation.validate_field(:duration, value, metadata) do
-      {:ok, sanitized} ->
-        {Map.put(acc_data, "duration", sanitized), Map.delete(acc_errors, :duration)}
+    {data, errors} =
+      case MeetingSettingsInputValidation.validate_field(:duration, value, metadata) do
+        {:ok, sanitized} ->
+          {Map.put(acc_data, "duration", sanitized), Map.delete(acc_errors, :duration)}
 
-      {:error, %{duration: msg}} ->
-        {acc_data, Map.put(acc_errors, :duration, msg)}
-    end
+        {:error, %{duration: msg}} ->
+          {acc_data, Map.put(acc_errors, :duration, msg)}
+      end
+
+    # A new primary duration can collide with, or stop colliding with, one of
+    # the further durations.
+    revalidate_extra_durations(data, errors, metadata)
+  end
+
+  def validate_and_update_field("extra_durations", value, metadata, acc_data, acc_errors) do
+    data =
+      Map.put(
+        acc_data,
+        "extra_durations",
+        MeetingSettingsInputValidation.extra_durations_list(value)
+      )
+
+    revalidate_extra_durations(data, acc_errors, metadata)
   end
 
   def validate_and_update_field("slot_interval", value, metadata, acc_data, acc_errors) do
@@ -69,6 +85,20 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.Validation do
 
       true ->
         {:ok, %{value: ReminderUtils.parse_reminder_value(value), unit: unit}}
+    end
+  end
+
+  @doc """
+  Checks the further durations in `data` against the primary one and updates
+  the `:extra_durations` error.
+  """
+  @spec revalidate_extra_durations(map(), map(), map()) :: {map(), map()}
+  def revalidate_extra_durations(data, errors, metadata) do
+    value = {Map.get(data, "extra_durations", []), Map.get(data, "duration")}
+
+    case MeetingSettingsInputValidation.validate_field(:extra_durations, value, metadata) do
+      {:ok, _sanitized} -> {data, Map.delete(errors, :extra_durations)}
+      {:error, %{extra_durations: msg}} -> {data, Map.put(errors, :extra_durations, msg)}
     end
   end
 

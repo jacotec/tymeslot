@@ -103,7 +103,7 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.OverviewComponent do
                           <ApprovalNotice.pill :if={Approval.required?(meeting_type)} />
                         </div>
                         <div class="duration-time">
-                          {LocalizationHelpers.format_duration(meeting_type.duration_minutes)}
+                          {LocalizationHelpers.format_duration_badge(meeting_type)}
                         </div>
                         <div class="duration-description">
                           {meeting_type.description}

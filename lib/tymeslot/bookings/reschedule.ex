@@ -36,6 +36,7 @@ defmodule Tymeslot.Bookings.Reschedule do
   alias Tymeslot.Meetings.MeetingQueries
   alias Tymeslot.Meetings.Scheduling
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MeetingTypes.Durations
   alias Tymeslot.Notifications.{Events, Orchestrator}
   alias Tymeslot.Repo
   alias Tymeslot.Utils.DateTimeUtils.Duration, as: UrlDuration
@@ -386,9 +387,12 @@ defmodule Tymeslot.Bookings.Reschedule do
   # the resolved meeting type's current duration is authoritative for grid
   # generation, and only an unresolved type falls back to the persisted
   # duration.
-  defp schedule_check_duration_minutes(%{duration_minutes: minutes}, _persisted_duration_minutes)
+  # A type offering several lengths steps the reschedule grid by the booked
+  # length when it still offers it (`AvailabilityHelpers.duration_minutes/1`
+  # does the same for the page), so both sides agree.
+  defp schedule_check_duration_minutes(%{duration_minutes: minutes} = meeting_type, persisted)
        when is_integer(minutes),
-       do: minutes
+       do: Durations.resolve(meeting_type, persisted)
 
   defp schedule_check_duration_minutes(_meeting_type, persisted_duration_minutes),
     do: persisted_duration_minutes

@@ -63,7 +63,7 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.FormView do
   # Which form-error fields surface an indicator on which tab. Errors on
   # fields absent here (e.g. :base) render below the panels and need no dot.
   @tab_error_fields %{
-    "details" => [:name, :duration, :slot_interval, :description, :icon],
+    "details" => [:name, :duration, :extra_durations, :slot_interval, :description, :icon],
     "location" => [:video_integration, :calendar_integration, :target_calendar],
     "booking" => [:payment_required, :price_cents, :approval_window_hours],
     "reminders" => [:reminder_config]
@@ -112,27 +112,85 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.FormView do
               icon="hero-tag"
             />
 
-            <div>
-              <.input
-                type="number"
-                name="meeting_type[duration]"
-                label={dgettext("dashboard_meeting_form", "Duration (minutes)")}
-                value={
-                  Map.get(@form_data, "duration", if(@type, do: @type.duration_minutes, else: "30"))
-                }
-                min={Constraints.duration_minutes_opts()[:greater_than_or_equal_to]}
-                max={Constraints.duration_minutes_opts()[:less_than_or_equal_to]}
-                required
-                placeholder="30"
-                phx-change="validate_meeting_type"
-                phx-debounce="500"
-                phx-target={@myself}
-                errors={
-                  FormValidationHelpers.field_errors(@form_errors, :duration)
-                  |> Enum.map(&Helpers.format_errors/1)
-                }
-                icon="hero-clock"
-              />
+            <% extra_durations = Map.get(@form_data, "extra_durations", []) %>
+            <%!-- The primary duration and up to seven further ones side by side.
+                  With more than one, the booker picks a length before a time. --%>
+            <div class="md:col-span-2" id="meeting-type-durations">
+              <div class="flex flex-wrap items-end gap-3">
+                <.input
+                  type="number"
+                  name="meeting_type[duration]"
+                  label={dgettext("dashboard_meeting_form", "Duration (minutes)")}
+                  value={
+                    Map.get(@form_data, "duration", if(@type, do: @type.duration_minutes, else: "30"))
+                  }
+                  min={Constraints.duration_minutes_opts()[:greater_than_or_equal_to]}
+                  max={Constraints.duration_minutes_opts()[:less_than_or_equal_to]}
+                  required
+                  placeholder="30"
+                  phx-change="validate_meeting_type"
+                  phx-debounce="500"
+                  phx-target={@myself}
+                  errors={
+                    FormValidationHelpers.field_errors(@form_errors, :duration)
+                    |> Enum.map(&Helpers.format_errors/1)
+                  }
+                  icon="hero-clock"
+                  class="w-44"
+                />
+                <div
+                  :for={{minutes, index} <- Enum.with_index(extra_durations)}
+                  class="flex items-end gap-1"
+                  data-testid="extra-duration"
+                >
+                  <.input
+                    type="number"
+                    id={"meeting-type-extra-duration-#{index}"}
+                    name={"meeting_type[extra_durations][#{index}]"}
+                    value={minutes}
+                    min={Constraints.duration_minutes_opts()[:greater_than_or_equal_to]}
+                    max={Constraints.duration_minutes_opts()[:less_than_or_equal_to]}
+                    required
+                    placeholder="60"
+                    aria-label={dgettext("dashboard_meeting_form", "Additional duration (minutes)")}
+                    phx-change="validate_meeting_type"
+                    phx-debounce="500"
+                    phx-target={@myself}
+                    class="w-28"
+                  />
+                  <button
+                    type="button"
+                    phx-click="remove_duration"
+                    phx-value-index={index}
+                    phx-target={@myself}
+                    class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-tymeslot-200 bg-white text-tymeslot-500 hover:text-red-600 hover:border-red-300"
+                    aria-label={dgettext("dashboard_meeting_form", "Remove this duration")}
+                    title={dgettext("dashboard_meeting_form", "Remove this duration")}
+                    data-testid="remove-duration"
+                  >
+                    <.icon name="hero-trash" class="h-4 w-4" />
+                  </button>
+                </div>
+                <button
+                  :if={length(extra_durations) + 1 < Constraints.max_durations_per_meeting_type()}
+                  type="button"
+                  phx-click="add_duration"
+                  phx-target={@myself}
+                  class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-turquoise-200 bg-white text-turquoise-600 hover:text-turquoise-700 hover:border-turquoise-300"
+                  aria-label={dgettext("dashboard_meeting_form", "Offer another duration")}
+                  title={dgettext("dashboard_meeting_form", "Offer another duration")}
+                  data-testid="add-duration"
+                >
+                  <.icon name="hero-plus" class="h-5 w-5" />
+                </button>
+              </div>
+              <p
+                :for={message <- FormValidationHelpers.field_errors(@form_errors, :extra_durations)}
+                class="mt-1 text-token-sm text-red-600"
+                data-testid="extra-durations-error"
+              >
+                {Helpers.format_errors(message)}
+              </p>
               <p class="mt-1 text-token-sm text-tymeslot-600">
                 {dgettext(
                   "dashboard_meeting_form",
@@ -140,6 +198,12 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.FormView do
                   min: Constraints.duration_minutes_opts()[:greater_than_or_equal_to],
                   max: Constraints.duration_minutes_opts()[:less_than_or_equal_to]
                 )}
+                <span :if={extra_durations != []}>
+                  {dgettext(
+                    "dashboard_meeting_form",
+                    "Bookers choose one of these durations before picking a time. Each booking lasts the duration chosen; the price is the same for all."
+                  )}
+                </span>
               </p>
             </div>
           </div>

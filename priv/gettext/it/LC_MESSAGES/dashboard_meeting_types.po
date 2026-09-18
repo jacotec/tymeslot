@@ -179,3 +179,8 @@ msgstr "Al mese"
 #, elixir-autogen, elixir-format
 msgid "Per week"
 msgstr "Alla settimana"
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/card.ex
+#, elixir-autogen, elixir-format
+msgid "%{min}–%{max} min"
+msgstr "%{min}–%{max} min"

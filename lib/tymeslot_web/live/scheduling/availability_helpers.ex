@@ -13,6 +13,7 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
   alias Tymeslot.Infrastructure.AvailabilityCache
   alias Tymeslot.Integrations.Calendar.Events, as: CalendarEvents
   alias Tymeslot.Meetings.BookingLimits.Checker
+  alias Tymeslot.MeetingTypes.Durations
   alias Tymeslot.Profiles
   alias Tymeslot.Utils.ContextUtils
 
@@ -420,20 +421,28 @@ defmodule TymeslotWeb.Live.Scheduling.AvailabilityHelpers do
   @doc """
   The meeting length the flow is operating on, in minutes.
 
-  The resolved meeting type is authoritative; only when there is none does the
+  The resolved meeting type is authoritative: its own duration, or the length
+  the booker picked from the ones it offers. Only when there is none does the
   slug fall back to a parse, and that parse is bounded — the slug is visitor
   input, so an unbounded one would let `/:username/99999/book` hold a
   multi-day slot. The single resolver exists so the display path and the
   submit path cannot disagree about the bound.
   """
-  @spec duration_minutes(Phoenix.LiveView.Socket.t()) :: pos_integer()
-  def duration_minutes(socket) do
-    case socket.assigns[:meeting_type] do
-      %{duration_minutes: mins} when is_integer(mins) ->
-        mins
+  @spec duration_minutes(Phoenix.LiveView.Socket.t() | map()) :: pos_integer()
+  def duration_minutes(%Phoenix.LiveView.Socket{assigns: assigns}), do: duration_minutes(assigns)
+
+  def duration_minutes(assigns) when is_map(assigns) do
+    case assigns[:meeting_type] do
+      %{duration_minutes: mins} = meeting_type when is_integer(mins) ->
+        # A reschedule keeps the booked length, the booker's pick otherwise;
+        # either only when the type offers it, else the type's own duration.
+        Durations.resolve(
+          meeting_type,
+          assigns[:reschedule_duration_minutes] || assigns[:chosen_duration_minutes]
+        )
 
       _unresolved ->
-        parse_duration_minutes(socket.assigns[:duration] || socket.assigns[:selected_duration])
+        parse_duration_minutes(assigns[:duration] || assigns[:selected_duration])
     end
   end
 

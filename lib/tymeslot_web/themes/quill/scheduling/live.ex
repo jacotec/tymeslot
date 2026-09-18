@@ -14,6 +14,7 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Live do
     BookingComponent,
     ConfirmationComponent,
     CustomQuestionsComponent,
+    DurationComponent,
     OverviewComponent,
     ScheduleComponent
   }
@@ -83,6 +84,8 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Live do
         <%= case assigns[:current_state] || :overview do %>
           <% :overview -> %>
             <.live_component module={OverviewComponent} id="overview-step" {assigns} />
+          <% :duration -> %>
+            <.live_component module={DurationComponent} id="duration-step" {assigns} />
           <% :schedule -> %>
             <.live_component module={ScheduleComponent} id="schedule-step" {assigns} />
           <% :questions -> %>

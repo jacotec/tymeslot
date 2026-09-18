@@ -17,6 +17,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
   alias Tymeslot.Bookings.SubmissionToken
   alias Tymeslot.CustomFields
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MeetingTypes.Durations
   alias Tymeslot.Profiles
   alias Tymeslot.Scheduling.ThemeFlow
   alias TymeslotWeb.Helpers.ClientIP
@@ -219,6 +220,9 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
     |> maybe_assign_from_params(:selected_time, params["time"])
     |> maybe_assign_from_params(:reschedule_meeting_uid, params["reschedule_meeting_uid"])
     |> assign(:is_rescheduling, is_binary(params["reschedule_meeting_uid"]))
+    # `?minutes=45` preselects a length on a type that offers several; it only
+    # counts when the type offers it (`AvailabilityHelpers.duration_minutes/1`).
+    |> maybe_assign_chosen_duration(Durations.parse(params["minutes"]))
     |> handle_confirmation_params(params)
   end
 
@@ -249,6 +253,11 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
     do: assign(socket, key, value)
 
   defp maybe_assign_from_params(socket, _key, _value), do: socket
+
+  defp maybe_assign_chosen_duration(socket, minutes) when is_integer(minutes),
+    do: assign(socket, :chosen_duration_minutes, minutes)
+
+  defp maybe_assign_chosen_duration(socket, _minutes), do: socket
 
   # A date that does not parse is no more usable than one that was never named,
   # and dropping it here is what lets `NextAvailable` land the booker on a real
@@ -347,9 +356,33 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers do
 
   defp assign_meeting_type(socket, meeting_type) do
     socket
+    |> keep_chosen_duration_if_offered(meeting_type)
     |> assign(:meeting_type, meeting_type)
     |> assign(:engine, refreshed_engine(socket, meeting_type))
+    |> assign_reschedule_duration()
     |> OrganizerHelpers.assign_booking_window()
+  end
+
+  # A length picked for one type means nothing for another that does not
+  # offer it; the booker then chooses again.
+  defp keep_chosen_duration_if_offered(socket, meeting_type) do
+    if Durations.offers?(meeting_type, socket.assigns[:chosen_duration_minutes]),
+      do: socket,
+      else: assign(socket, :chosen_duration_minutes, nil)
+  end
+
+  defp assign_reschedule_duration(socket) do
+    uid = socket.assigns[:reschedule_meeting_uid]
+
+    if is_binary(uid) and is_nil(socket.assigns[:reschedule_duration_minutes]) do
+      assign(
+        socket,
+        :reschedule_duration_minutes,
+        ThemeFlow.reschedule_duration_minutes(uid, socket.assigns[:organizer_user_id])
+      )
+    else
+      socket
+    end
   end
 
   # Re-initialise only when the definitions actually changed, so re-entering a

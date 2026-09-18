@@ -5,6 +5,7 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpers do
 
   alias Tymeslot.Availability.Calculate
   alias Tymeslot.MeetingTypes
+  alias Tymeslot.MeetingTypes.Durations
 
   # `awaiting_payment` is a transitional state used by embedded paid
   # bookings: Stripe Checkout opens in a new tab and the iframe waits for
@@ -48,6 +49,62 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpers do
   def states_for(_meeting_type), do: @default_states
 
   @doc """
+  The state map for the flow the socket is in: `states_for/1`, plus the
+  `:duration` step when the booker has a length to choose.
+
+  The duration step belongs to the first step (in Quill's step indicator it
+  is part of "Duration"), so it shares step 1 with `:overview`. A reschedule
+  keeps the length that was booked and never shows it.
+  """
+  @spec states_for_socket(Phoenix.LiveView.Socket.t()) :: map()
+  def states_for_socket(socket) do
+    meeting_type = socket.assigns[:meeting_type] || %{}
+    states = states_for(meeting_type)
+
+    if choose_duration?(socket), do: with_duration_step(states), else: states
+  end
+
+  @doc "Whether the booker picks a length in a step of its own."
+  @spec choose_duration?(Phoenix.LiveView.Socket.t() | map()) :: boolean()
+  def choose_duration?(%Phoenix.LiveView.Socket{assigns: assigns}), do: choose_duration?(assigns)
+
+  def choose_duration?(assigns) when is_map(assigns) do
+    Durations.multiple?(assigns[:meeting_type]) and assigns[:reschedule_meeting_uid] == nil
+  end
+
+  @doc """
+  Whether the flow still has to ask for a length before scheduling: the type
+  offers several and none of them has been chosen.
+  """
+  @spec needs_duration_choice?(Phoenix.LiveView.Socket.t()) :: boolean()
+  def needs_duration_choice?(socket) do
+    is_nil(socket.redirected) and choose_duration?(socket) and
+      not Durations.offers?(
+        socket.assigns[:meeting_type],
+        socket.assigns[:chosen_duration_minutes]
+      )
+  end
+
+  defp with_duration_step(states) do
+    states
+    |> put_in([:overview, :next], :duration)
+    |> put_in([:schedule, :prev], :duration)
+    |> Map.put(:duration, %{step: 1, next: :schedule, prev: :overview})
+  end
+
+  @doc """
+  The state a step number in the indicator leads to. `:duration` shares step
+  1 with `:overview` and is never the target: step 1 goes back to the start.
+  """
+  @spec state_for_step(map(), integer() | nil) :: atom() | nil
+  def state_for_step(states, step) do
+    case Enum.find(states, fn {state, %{step: n}} -> n == step and state != :duration end) do
+      {state, _meta} -> state
+      nil -> nil
+    end
+  end
+
+  @doc """
   Checks if navigation to a target state is allowed based on the current state's step.
   Only allows navigation to previous or current steps.
   """
@@ -80,6 +137,12 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpers do
     case {current_state, next_state} do
       {:overview, :schedule} ->
         validate_step_requirements(socket, :schedule)
+
+      {:overview, :duration} ->
+        validate_step_requirements(socket, :schedule)
+
+      {:duration, :schedule} ->
+        validate_chosen_duration(socket)
 
       {:schedule, :questions} ->
         validate_step_requirements(socket, :questions)
@@ -125,6 +188,18 @@ defmodule TymeslotWeb.Themes.Shared.StateMachineHelpers do
     case socket.assigns[:meeting_type] do
       nil -> list
       meeting_type -> [meeting_type | list]
+    end
+  end
+
+  defp validate_chosen_duration(socket) do
+    case socket.assigns[:chosen_duration_minutes] do
+      nil ->
+        {:error, :duration_required}
+
+      minutes ->
+        if Durations.offers?(socket.assigns[:meeting_type], minutes),
+          do: :ok,
+          else: {:error, :duration_invalid}
     end
   end
 end

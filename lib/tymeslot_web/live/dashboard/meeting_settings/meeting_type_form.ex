@@ -14,6 +14,7 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm do
   alias Tymeslot.Availability.Schedules
   alias Tymeslot.MeetingTypes.ApprovalWindow
   alias Tymeslot.Utils.ReminderUtils
+  alias Tymeslot.Validation.Constraints
   alias TymeslotWeb.Dashboard.MeetingSettings.Helpers
 
   alias TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.{
@@ -121,6 +122,11 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm do
     socket = sync_slot_interval_mode(socket, params)
     params = drop_interval_mode_sentinel(params)
 
+    # An input-level change posts one further duration as `%{"<index>" => value}`;
+    # it is folded into the full list before merging, so the other entries
+    # survive.
+    params = fold_extra_durations(params, socket.assigns.form_data || %{})
+
     # Merge incoming params into existing form data to prevent wiping other fields
     new_data = Map.merge(socket.assigns.form_data || %{}, params)
 
@@ -145,6 +151,31 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm do
      socket
      |> assign(form_data: updated_data, form_errors: updated_errors)
      |> Autosave.maybe_run()}
+  end
+
+  @impl Phoenix.LiveComponent
+  def handle_event("add_duration", _params, socket) do
+    form_data = socket.assigns.form_data || %{}
+    extras = Map.get(form_data, "extra_durations", [])
+
+    if length(extras) + 1 < Constraints.max_durations_per_meeting_type() do
+      update_extra_durations(socket, extras ++ [suggest_duration(form_data)])
+    else
+      {:noreply, socket}
+    end
+  end
+
+  @impl Phoenix.LiveComponent
+  def handle_event("remove_duration", %{"index" => index}, socket) do
+    extras = Map.get(socket.assigns.form_data || %{}, "extra_durations", [])
+
+    case Integer.parse(to_string(index)) do
+      {position, ""} when position >= 0 and position < length(extras) ->
+        update_extra_durations(socket, List.delete_at(extras, position))
+
+      _other ->
+        {:noreply, socket}
+    end
   end
 
   @impl Phoenix.LiveComponent
@@ -536,4 +567,61 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm do
   end
 
   defp off_preset_interval?(_value), do: false
+
+  defp update_extra_durations(socket, extras) do
+    {data, errors} =
+      Validation.revalidate_extra_durations(
+        Map.put(socket.assigns.form_data || %{}, "extra_durations", extras),
+        socket.assigns.form_errors || %{},
+        Helpers.get_security_metadata(socket)
+      )
+
+    {:noreply,
+     socket
+     |> assign(form_data: data, form_errors: errors)
+     |> Autosave.maybe_run()}
+  end
+
+  defp fold_extra_durations(%{"extra_durations" => %{} = changed} = params, form_data) do
+    current = Map.get(form_data, "extra_durations", [])
+
+    folded =
+      Enum.reduce(changed, current, fn {index, value}, acc ->
+        case Integer.parse(to_string(index)) do
+          {position, ""} when position >= 0 and position < length(acc) ->
+            List.replace_at(acc, position, to_string(value))
+
+          _other ->
+            acc
+        end
+      end)
+
+    Map.put(params, "extra_durations", folded)
+  end
+
+  defp fold_extra_durations(params, _form_data), do: params
+
+  # A new column starts with the next common length the type does not offer
+  # yet, so it is valid straight away and the host only has to adjust it.
+  @suggested_durations [15, 30, 45, 60, 90, 120, 180, 240, 300, 360, 420, 480]
+
+  defp suggest_duration(form_data) do
+    values = [Map.get(form_data, "duration") | Map.get(form_data, "extra_durations", [])]
+
+    taken =
+      Enum.flat_map(values, fn value ->
+        case Integer.parse(to_string(value)) do
+          {minutes, ""} -> [minutes]
+          _other -> []
+        end
+      end)
+
+    longest = Enum.max(taken, fn -> 0 end)
+
+    candidate =
+      Enum.find(@suggested_durations, &(&1 > longest and &1 not in taken)) ||
+        Enum.find(@suggested_durations, &(&1 not in taken)) || 60
+
+    to_string(candidate)
+  end
 end

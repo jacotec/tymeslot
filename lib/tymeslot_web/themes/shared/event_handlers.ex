@@ -5,9 +5,11 @@ defmodule TymeslotWeb.Themes.Shared.EventHandlers do
   require Logger
 
   alias Phoenix.LiveView
+  alias Tymeslot.MeetingTypes.Durations
   alias TymeslotWeb.Live.Scheduling.AvailabilityHelpers
   alias TymeslotWeb.Live.Scheduling.Handlers.BookingErrorMessage
   alias TymeslotWeb.Themes.Shared.LiveHelpers
+  alias TymeslotWeb.Themes.Shared.StateMachineHelpers
   import Phoenix.Component, only: [assign: 3]
 
   @doc """
@@ -76,10 +78,52 @@ defmodule TymeslotWeb.Themes.Shared.EventHandlers do
         {:noreply, socket}
 
       :next_step ->
-        handle_state_transition(socket, :overview, :schedule, callbacks)
+        # `:duration` when the chosen type offers more than one length.
+        next = get_in(StateMachineHelpers.states_for_socket(socket), [:overview, :next])
+        handle_state_transition(socket, :overview, next || :schedule, callbacks)
 
       _other ->
         {:noreply, socket}
+    end
+  end
+
+  @doc """
+  Handles the events of the step where the booker picks a length.
+  """
+  @spec handle_duration_events(LiveView.Socket.t(), atom(), any(), map()) ::
+          {:noreply, LiveView.Socket.t()}
+  def handle_duration_events(socket, event, data, callbacks) do
+    case event do
+      :select_duration ->
+        {:noreply, choose_duration(socket, data)}
+
+      :next_step ->
+        handle_state_transition(socket, :duration, :schedule, callbacks)
+
+      :back_step ->
+        if socket.assigns[:entered_via_overview] do
+          handle_state_transition(socket, :duration, :overview, callbacks)
+        else
+          {:noreply, socket}
+        end
+
+      _other ->
+        {:noreply, socket}
+    end
+  end
+
+  # Only a length the type offers is taken; anything else a crafted push sends
+  # is ignored. A new length makes the month grid stale, so it is fetched again
+  # for the step that follows.
+  defp choose_duration(socket, value) do
+    minutes = Durations.parse(value)
+
+    if Durations.offers?(socket.assigns[:meeting_type], minutes) do
+      socket
+      |> assign(:chosen_duration_minutes, minutes)
+      |> AvailabilityHelpers.fetch_month_availability_async()
+    else
+      socket
     end
   end
 

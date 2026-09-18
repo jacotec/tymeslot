@@ -857,3 +857,23 @@ msgstr "Conformément à la durée du rendez-vous, les heures seront proposées 
 #, elixir-autogen, elixir-format
 msgid "Times will be offered every %{minutes} minutes: %{examples}…"
 msgstr "Les heures seront proposées toutes les %{minutes} minutes : %{examples}…"
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Additional duration (minutes)"
+msgstr "Durée supplémentaire (minutes)"
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Bookers choose one of these durations before picking a time. Each booking lasts the duration chosen; the price is the same for all."
+msgstr "Les personnes qui réservent choisissent l'une de ces durées avant de choisir un horaire. Chaque réservation dure le temps choisi ; le prix est le même pour toutes."
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Offer another duration"
+msgstr "Proposer une autre durée"
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/meeting_type_form/form_view.ex
+#, elixir-autogen, elixir-format
+msgid "Remove this duration"
+msgstr "Supprimer cette durée"

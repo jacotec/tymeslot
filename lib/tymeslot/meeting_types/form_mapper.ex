@@ -18,6 +18,7 @@ defmodule Tymeslot.MeetingTypes.FormMapper do
 
   alias Tymeslot.MeetingPayments
   alias Tymeslot.MeetingTypes.ApprovalWindow
+  alias Tymeslot.MeetingTypes.InputValidation
   alias Tymeslot.Utils.ReminderUtils
   alias Tymeslot.Validation.Constraints
 
@@ -65,7 +66,10 @@ defmodule Tymeslot.MeetingTypes.FormMapper do
 
       attrs = Map.merge(attrs, booking_limits(params))
 
-      {:ok, maybe_put_custom_fields(attrs, params)}
+      attrs
+      |> maybe_put_custom_fields(params)
+      |> maybe_put_extra_durations(params)
+      |> then(&{:ok, &1})
     end
   end
 
@@ -99,6 +103,26 @@ defmodule Tymeslot.MeetingTypes.FormMapper do
       attrs
     end
   end
+
+  # Only when the params carry the key, like `custom_fields`: a caller that
+  # does not render the durations row cannot clear them by omission. Values
+  # that do not parse are dropped here; InputValidation has already refused
+  # them for the form.
+  defp maybe_put_extra_durations(attrs, %{"extra_durations" => extras}) do
+    minutes =
+      extras
+      |> InputValidation.extra_durations_list()
+      |> Enum.flat_map(fn value ->
+        case Integer.parse(String.trim(value)) do
+          {minutes, ""} -> [minutes]
+          _other -> []
+        end
+      end)
+
+    Map.put(attrs, :extra_durations_minutes, minutes)
+  end
+
+  defp maybe_put_extra_durations(attrs, _params), do: attrs
 
   defp parse_duration(value) when is_binary(value) do
     case Integer.parse(value) do

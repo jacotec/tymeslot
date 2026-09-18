@@ -180,3 +180,8 @@ msgstr "На місяць"
 #, elixir-autogen, elixir-format
 msgid "Per week"
 msgstr "На тиждень"
+
+#: lib/tymeslot_web/live/dashboard/meeting_settings/card.ex
+#, elixir-autogen, elixir-format
+msgid "%{min}–%{max} min"
+msgstr "%{min}–%{max} хв"
