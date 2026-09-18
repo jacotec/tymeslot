@@ -140,7 +140,7 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.FormView do
                 />
                 <div
                   :for={{minutes, index} <- Enum.with_index(extra_durations)}
-                  class="flex items-end gap-1"
+                  class="flex items-center gap-1"
                   data-testid="extra-duration"
                 >
                   <.input
@@ -163,7 +163,7 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.FormView do
                     phx-click="remove_duration"
                     phx-value-index={index}
                     phx-target={@myself}
-                    class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-tymeslot-200 bg-white text-tymeslot-500 hover:text-red-600 hover:border-red-300"
+                    class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-tymeslot-200 bg-white text-tymeslot-500 hover:text-red-600 hover:border-red-300"
                     aria-label={dgettext("dashboard_meeting_form", "Remove this duration")}
                     title={dgettext("dashboard_meeting_form", "Remove this duration")}
                     data-testid="remove-duration"
@@ -171,18 +171,24 @@ defmodule TymeslotWeb.Dashboard.MeetingSettings.MeetingTypeForm.FormView do
                     <.icon name="hero-trash" class="h-4 w-4" />
                   </button>
                 </div>
-                <button
+                <%!-- As tall as an input (h-12), so the button centres on the
+                      fields beside it rather than on their bottom edge. --%>
+                <div
                   :if={length(extra_durations) + 1 < Constraints.max_durations_per_meeting_type()}
-                  type="button"
-                  phx-click="add_duration"
-                  phx-target={@myself}
-                  class="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-turquoise-200 bg-white text-turquoise-600 hover:text-turquoise-700 hover:border-turquoise-300"
-                  aria-label={dgettext("dashboard_meeting_form", "Offer another duration")}
-                  title={dgettext("dashboard_meeting_form", "Offer another duration")}
-                  data-testid="add-duration"
+                  class="flex h-12 items-center"
                 >
-                  <.icon name="hero-plus" class="h-5 w-5" />
-                </button>
+                  <button
+                    type="button"
+                    phx-click="add_duration"
+                    phx-target={@myself}
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-turquoise-200 bg-white text-turquoise-600 hover:text-turquoise-700 hover:border-turquoise-300"
+                    aria-label={dgettext("dashboard_meeting_form", "Offer another duration")}
+                    title={dgettext("dashboard_meeting_form", "Offer another duration")}
+                    data-testid="add-duration"
+                  >
+                    <.icon name="hero-plus" class="h-5 w-5" />
+                  </button>
+                </div>
               </div>
               <p
                 :for={message <- FormValidationHelpers.field_errors(@form_errors, :extra_durations)}

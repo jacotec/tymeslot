@@ -68,7 +68,10 @@ defmodule TymeslotWeb.Themes.Quill.Scheduling.Components.DurationComponent do
                   {dgettext("booking", "How long should the meeting be?")}
                 </p>
 
-                <div class="overview-duration-list">
+                <%!-- Its own list class: the overview's width tiers key on
+                      `.overview-duration-list` card counts and would widen this
+                      step past every other one. --%>
+                <div class="length-list">
                   <button
                     :for={minutes <- @offered}
                     type="button"
