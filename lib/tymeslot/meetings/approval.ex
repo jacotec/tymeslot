@@ -274,7 +274,9 @@ defmodule Tymeslot.Meetings.Approval do
   tentative calendar hold to a real event, then hand the meeting to
   `Bookings.Activation`, which creates the video room before composing the
   confirmation so the join link is in the invitee's first email rather than a
-  later correction.
+  later correction. A booking that had been confirmed before a reschedule
+  sent it back into the gate is then announced to host and invitee as
+  rescheduled instead (see `announce_move/1`).
 
   Each step is best-effort. The row is committed before this runs, so no
   failure here may turn a real confirmation into an error the caller has to
@@ -294,8 +296,24 @@ defmodule Tymeslot.Meetings.Approval do
       Activation.activate(confirmed, with_video_room: true)
     end)
 
+    announce_move(confirmed)
+  end
+
+  # A booking that was confirmed before and re-entered the gate through a
+  # reschedule has already had its confirmation: `Activation` leaves it alone
+  # because the sent flags are still set. Both sides still need to hear that
+  # the new time now stands, and to them it is a move of a meeting they
+  # already have, so it goes out as the reschedule notice with an updated
+  # calendar entry rather than as a second "new booking" confirmation.
+  defp announce_move(%Meeting{first_announced_at: %DateTime{}} = confirmed) do
+    best_effort(confirmed, "send reschedule notifications", fn ->
+      Orchestrator.send_reapproval_notifications(confirmed)
+    end)
+
     :ok
   end
+
+  defp announce_move(_confirmed), do: :ok
 
   @doc """
   Declines a held booking, releasing the slot.
