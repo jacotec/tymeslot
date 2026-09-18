@@ -80,6 +80,7 @@ defmodule Tymeslot.Meetings.Approval do
   alias Tymeslot.Bookings.Activation
   alias Tymeslot.Bookings.CalendarJobs
   alias Tymeslot.Clock
+  alias Tymeslot.Emails.AppointmentBuilder
   alias Tymeslot.Infrastructure.AvailabilityCache
   alias Tymeslot.MeetingPayments
   alias Tymeslot.Meetings
@@ -87,6 +88,7 @@ defmodule Tymeslot.Meetings.Approval do
   alias Tymeslot.Meetings.MeetingSchema, as: Meeting
   alias Tymeslot.MeetingTypes.MeetingTypeSchema, as: MeetingType
   alias Tymeslot.Notifications.Events
+  alias Tymeslot.Notifications.GuestNotifications
   alias Tymeslot.Notifications.Orchestrator
   alias Tymeslot.Validation.Constraints
   alias Tymeslot.Workers.VideoSyncWorker
@@ -229,6 +231,12 @@ defmodule Tymeslot.Meetings.Approval do
         Logger.info("Booking request approved", meeting_id: confirmed.id, uid: confirmed.uid)
         AvailabilityCache.invalidate_for_user(confirmed.organizer_user_id)
         activate_confirmed(confirmed)
+
+        # A reschedule that sent a confirmed booking back into the gate left
+        # its invited guests waiting for the new time; tell them it stands.
+        best_effort(confirmed, "notify guests", fn ->
+          GuestNotifications.notify_reapproved(confirmed)
+        end)
 
         {:ok, confirmed}
 
@@ -461,6 +469,15 @@ defmodule Tymeslot.Meetings.Approval do
     best_effort(meeting, "refund unapproved request", fn -> refund_unapproved_request(meeting) end)
 
     best_effort(meeting, "announce release", fn -> announce_release(meeting, status) end)
+
+    # Only a request a reschedule sent back into the gate had invited guests
+    # (`GuestNotifications.notify_cancelled/2` checks); they learn it is off.
+    if meeting.first_announced_at do
+      best_effort(meeting, "notify guests", fn ->
+        GuestNotifications.notify_cancelled(meeting, AppointmentBuilder.from_meeting(meeting))
+      end)
+    end
+
     :ok
   end
 
