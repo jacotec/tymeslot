@@ -125,6 +125,12 @@ defmodule Tymeslot.Bookings.CreateAdHoc do
       video_integration_id: params[:video_integration_id],
       attendee_name: params.attendee_name,
       attendee_email: params.attendee_email,
+      # Explicitly none, not "unset". A nil here is read by
+      # `Notifications.Orchestrator` as a meeting from before the reminders
+      # column existed, and answered with the legacy default of 30 minutes —
+      # so a booking whose own confirmation says no reminders are scheduled
+      # sends one anyway. An empty list is honoured as the answer it is.
+      reminders: [],
       # The note the host writes goes here rather than into `description`:
       # that field carries the meeting type's own description on a booked
       # meeting, and nothing outside the calendar entry reads it. This one
