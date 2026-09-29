@@ -37,6 +37,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
           attendee_name: String.t() | nil,
           attendee_email: String.t() | nil,
           attendee_message: String.t() | nil,
+          host_note: String.t() | nil,
           attendee_phone: String.t() | nil,
           attendee_company: String.t() | nil,
           attendee_timezone: String.t() | nil,
@@ -153,6 +154,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     field(:attendee_name, :string)
     field(:attendee_email, :string)
     field(:attendee_message, :string)
+    field(:host_note, :string)
     field(:attendee_phone, :string)
     field(:attendee_company, :string)
     field(:attendee_timezone, :string)
@@ -302,6 +304,7 @@ defmodule Tymeslot.Meetings.MeetingSchema do
     :video_integration_id,
     :calendar_path,
     :attendee_message,
+    :host_note,
     :attendee_phone,
     :attendee_company,
     :attendee_timezone,

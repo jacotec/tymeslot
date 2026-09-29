@@ -124,10 +124,11 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.CreateMeetingExtrasTest do
 
       hook(lv, "save_event", %{})
 
-      # `attendee_message`, not `description`: that one carries the meeting
-      # type's own text on a booked meeting and is read by nothing but the
-      # calendar entry, so a note left there would never reach the guest.
-      assert created_meeting().attendee_message == "Bring the slides."
+      # A field of its own: `attendee_message` holds the attendee's words, and
+      # nothing can tell the two apart after a meeting type is deleted, when a
+      # booker's note read as the host's would reach every co-guest.
+      assert created_meeting().host_note == "Bring the slides."
+      assert created_meeting().attendee_message == nil
     end
 
     test "is optional", %{conn: conn} do
@@ -136,7 +137,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.CreateMeetingExtrasTest do
       fill_guest(lv)
       hook(lv, "save_event", %{})
 
-      assert created_meeting().attendee_message == nil
+      assert created_meeting().host_note == nil
     end
   end
 

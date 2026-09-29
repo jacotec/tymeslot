@@ -178,7 +178,7 @@ defmodule Tymeslot.Emails.Templates.AppointmentReminder do
 
       #{MeetingComponents.attendee_info_section(@intent, %{name: appointment_details.attendee_name, email: appointment_details.attendee_email})}
 
-      #{MeetingComponents.attendee_message_box(@intent, appointment_details[:attendee_message], appointment_details[:message_from] || :attendee)}
+      #{MeetingComponents.attendee_message_box(@intent, appointment_details[:attendee_message], :attendee)}
 
       #{if Map.get(appointment_details, :meeting_url) do
         MeetingComponents.video_meeting_section(@intent, appointment_details.meeting_url,
@@ -343,15 +343,11 @@ defmodule Tymeslot.Emails.Templates.AppointmentReminder do
   # again on the day. A note from the person booking still goes only to the
   # organiser.
   defp organiser_note(appointment_details) do
-    case appointment_details[:message_from] do
-      :organiser ->
-        MeetingComponents.attendee_message_box(
-          @intent,
-          appointment_details[:attendee_message],
-          :organiser
-        )
+    case appointment_details[:organiser_note] do
+      note when is_binary(note) ->
+        MeetingComponents.attendee_message_box(@intent, note, :organiser)
 
-      _attendee ->
+      _none ->
         ""
     end
   end

@@ -65,4 +65,19 @@ defmodule TymeslotWeb.Components.Dashboard.Meetings.Helpers do
     end_time = TimeFormat.format(local_end, time_format)
     "#{start_time} - #{end_time}"
   end
+
+  @doc """
+  The note on a booking, whoever wrote it.
+  """
+  @spec meeting_note(map()) :: String.t() | nil
+  # The note on a booking, whoever wrote it: the attendee's own words, or the
+  # host's own note on a meeting they created. Two fields, because nothing can
+  # tell them apart afterwards — deleting a meeting type nils `meeting_type_id`
+  # on its bookings, and a booker's note read as the host's would be repeated
+  # to every co-guest.
+  def meeting_note(%{attendee_message: note}) when is_binary(note) and note != "", do: note
+
+  def meeting_note(%{host_note: note}) when is_binary(note) and note != "", do: note
+
+  def meeting_note(_meeting), do: nil
 end

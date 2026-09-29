@@ -152,7 +152,7 @@ defmodule Tymeslot.CalendarGrid.EventCreation do
       calendar_path: params[:calendar_id],
       video_integration_id: params[:video_integration_id],
       guest_emails: params[:guest_emails] || [],
-      attendee_message: params[:attendee_message],
+      organizer_note: params[:organizer_note],
       attendee_locale: params[:attendee_locale]
     }
 

@@ -145,10 +145,13 @@ defmodule Tymeslot.Emails.AppointmentBuilder do
       attendee_name: meeting.attendee_name,
       attendee_email: meeting.attendee_email,
       attendee_message: meeting.attendee_message,
-      # A meeting with no type was created by the host from their dashboard, so
-      # the note on it is theirs rather than the attendee's.
-      message_from:
-        if(is_nil(Map.get(meeting, :meeting_type_id)), do: :organiser, else: :attendee),
+      # Who did the inviting, for the wording of a guest's invitation, and the
+      # host's own note, which lives in the meeting's `description`. Both read
+      # the same field, and both are safe to get wrong on a booking whose
+      # meeting type was deleted: the wording costs a name, and `description`
+      # holds the meeting type's own public text, never anyone's private words.
+      host_created?: is_nil(Map.get(meeting, :meeting_type_id)),
+      organiser_note: organiser_note(meeting),
       attendee_phone: meeting.attendee_phone,
       attendee_company: meeting.attendee_company
     }
@@ -190,6 +193,13 @@ defmodule Tymeslot.Emails.AppointmentBuilder do
     case Profiles.get_profile_by_user_id(user_id) do
       {:ok, profile} -> profile
       {:error, :not_found} -> nil
+    end
+  end
+
+  defp organiser_note(meeting) do
+    case Map.get(meeting, :host_note) do
+      text when is_binary(text) -> if String.trim(text) == "", do: nil, else: String.trim(text)
+      _absent -> nil
     end
   end
 

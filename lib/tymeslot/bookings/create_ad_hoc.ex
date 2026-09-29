@@ -31,7 +31,7 @@ defmodule Tymeslot.Bookings.CreateAdHoc do
           optional(:calendar_path) => String.t() | nil,
           optional(:video_integration_id) => pos_integer() | nil,
           optional(:guest_emails) => [String.t()],
-          optional(:attendee_message) => String.t() | nil,
+          optional(:organizer_note) => String.t() | nil,
           optional(:attendee_locale) => String.t() | nil
         }
 
@@ -131,11 +131,13 @@ defmodule Tymeslot.Bookings.CreateAdHoc do
       # so a booking whose own confirmation says no reminders are scheduled
       # sends one anyway. An empty list is honoured as the answer it is.
       reminders: [],
-      # The note the host writes goes here rather than into `description`:
-      # that field carries the meeting type's own description on a booked
-      # meeting, and nothing outside the calendar entry reads it. This one
-      # shows on the booking card and in the emails the guests receive.
-      attendee_message: presence(params[:attendee_message]),
+      attendee_message: nil,
+      # The host's own note, in a field of its own. Not `attendee_message`,
+      # which holds the attendee's words, and not `description`, which carries
+      # the meeting type's own text on a booked meeting: neither can say who
+      # wrote what afterwards, and a booker's private note read as the host's
+      # would be repeated to every co-guest.
+      host_note: presence(params[:organizer_note]),
       attendee_timezone: params[:attendee_timezone] || "Etc/UTC",
       # The host chooses which language the guest is written to; an unsupported
       # or missing choice falls back the way the form's own default does.

@@ -129,7 +129,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.EventHandlers.CreateExecution do
       calendar_id: creating[:calendar_id],
       video_integration_id: creating[:video_integration_id],
       guest_emails: creating[:guest_emails] || [],
-      attendee_message: String.trim(creating[:message] || ""),
+      organizer_note: String.trim(creating[:message] || ""),
       attendee_locale: creating[:locale]
     }
   end

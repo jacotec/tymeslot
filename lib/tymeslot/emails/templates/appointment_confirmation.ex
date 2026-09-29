@@ -214,7 +214,9 @@ defmodule Tymeslot.Emails.Templates.AppointmentConfirmation do
       mjml_content = """
       #{MeetingComponents.attendee_info_section(@intent, %{name: appointment_details.attendee_name, email: appointment_details.attendee_email})}
 
-      #{MeetingComponents.attendee_message_box(@intent, appointment_details[:attendee_message], appointment_details[:message_from] || :attendee)}
+      #{MeetingComponents.attendee_message_box(@intent, appointment_details[:attendee_message], :attendee)}
+
+      #{organiser_note(appointment_details)}
 
       #{MeetingComponents.meeting_details_table(TemplateHelper.organizer_meeting_details(appointment_details), organizer_locale(appointment_details))}
 
@@ -275,7 +277,7 @@ defmodule Tymeslot.Emails.Templates.AppointmentConfirmation do
   # created themselves it is the other way round — naming the main guest as the
   # one who invited everybody describes a booking that never happened.
   defp guest_intro(details, guest_name \\ nil) do
-    host_created? = details[:message_from] == :organiser
+    host_created? = details[:host_created?] == true
 
     {inviter, other} =
       if host_created?,
@@ -306,15 +308,11 @@ defmodule Tymeslot.Emails.Templates.AppointmentConfirmation do
   # invited. A note left by the person *booking* is not echoed back to them —
   # it goes to the organiser, which `render(:organizer, …)` already does.
   defp organiser_note(appointment_details) do
-    case appointment_details[:message_from] do
-      :organiser ->
-        MeetingComponents.attendee_message_box(
-          @intent,
-          appointment_details[:attendee_message],
-          :organiser
-        )
+    case appointment_details[:organiser_note] do
+      note when is_binary(note) ->
+        MeetingComponents.attendee_message_box(@intent, note, :organiser)
 
-      _attendee ->
+      _none ->
         ""
     end
   end

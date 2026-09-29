@@ -5,6 +5,12 @@ defmodule Tymeslot.Emails.OrganiserNoteTest do
 
   It used to be shown only to the organiser, which is right for a note left by
   the person booking and useless for one the host wrote to be read.
+
+  The two are kept apart by *where they live*, not by a flag: the host's note
+  is the meeting's own `description`, `attendee_message` is the attendee's own
+  words. Deleting a meeting type nils `meeting_type_id` on its bookings, so
+  anything deriving authorship from that field would hand a booker's private
+  note to every co-guest.
   """
 
   use ExUnit.Case, async: true
@@ -15,14 +21,15 @@ defmodule Tymeslot.Emails.OrganiserNoteTest do
 
   import Tymeslot.EmailTestHelpers
 
-  defp details(from) do
-    build_appointment_details(%{
-      attendee_message: "Meet at the side entrance.",
-      message_from: from,
-      guest_name: "Carol",
-      guest_accept_url: "https://example.com/guest/tok/accept",
-      guest_decline_url: "https://example.com/guest/tok/decline"
-    })
+  defp details(note_field) do
+    base =
+      build_appointment_details(%{
+        guest_name: "Carol",
+        guest_accept_url: "https://example.com/guest/tok/accept",
+        guest_decline_url: "https://example.com/guest/tok/decline"
+      })
+
+    Map.merge(base, note_field)
   end
 
   # ICS folds every line at 75 octets (RFC 5545), so a heading can be split
@@ -35,8 +42,18 @@ defmodule Tymeslot.Emails.OrganiserNoteTest do
     end
   end
 
-  defp host_note, do: details(:organiser)
-  defp booker_note, do: details(:attendee)
+  # The two notes are separate fields now, so a meeting can carry both. Each
+  # case here is about one of them, so the other is cleared explicitly.
+  defp host_note,
+    do:
+      details(%{
+        organiser_note: "Meet at the side entrance.",
+        host_created?: true,
+        attendee_message: nil
+      })
+
+  defp booker_note,
+    do: details(%{attendee_message: "Meet at the side entrance.", organiser_note: nil})
 
   describe "a note the host wrote" do
     test "reaches the main guest" do

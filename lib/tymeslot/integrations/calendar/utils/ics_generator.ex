@@ -313,6 +313,7 @@ defmodule Tymeslot.Integrations.Calendar.IcsGenerator do
   defp build_ics_description(meeting_details) do
     parts = [
       Map.get(meeting_details, :description),
+      build_organiser_note_section(meeting_details),
       build_attendee_message_section(meeting_details),
       build_video_url_section(meeting_details),
       build_custom_answers_section(meeting_details)
@@ -321,6 +322,19 @@ defmodule Tymeslot.Integrations.Calendar.IcsGenerator do
     parts
     |> Enum.filter(&(&1 && String.trim(&1) != ""))
     |> Enum.join("\n\n")
+  end
+
+  # The host's own note, headed as theirs. It reaches here as its own field
+  # rather than inside `description`, so the heading says who wrote it without
+  # anything having to guess.
+  defp build_organiser_note_section(meeting_details) do
+    case Map.get(meeting_details, :organiser_note) do
+      note when is_binary(note) and note != "" ->
+        "#{dgettext("emails", "Message from the organiser:")}\n#{String.trim(note)}"
+
+      _other ->
+        nil
+    end
   end
 
   defp build_attendee_message_section(meeting_details) do
@@ -332,12 +346,6 @@ defmodule Tymeslot.Integrations.Calendar.IcsGenerator do
         nil
     end
   end
-
-  # A note on a meeting the host created is theirs; naming the main guest as its
-  # author puts words in the mouth of someone who is reading them for the first
-  # time. Same distinction the email body makes, from the same field.
-  defp message_heading(%{message_from: :organiser}),
-    do: dgettext("emails", "Message from the organiser:")
 
   defp message_heading(meeting_details) do
     attendee_label = Map.get(meeting_details, :attendee_name, dgettext("emails", "attendee"))
