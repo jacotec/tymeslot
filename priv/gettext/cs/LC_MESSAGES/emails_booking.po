@@ -1060,3 +1060,13 @@ msgstr "Jako hosta vás na tuto schůzku s uživatelem %{organizer} pozval uži
 #, elixir-autogen, elixir-format
 msgid "Hi %{guest} - %{booker} has invited you as a guest to this meeting with %{organizer}."
 msgstr "Dobrý den, %{guest}, jako hosta vás na tuto schůzku s uživatelem %{organizer} pozval uživatel %{booker}."
+
+#: lib/tymeslot/emails/templates/event_update_notification.ex
+#, elixir-autogen, elixir-format
+msgid "%{name} has updated every occurrence of a repeating event you're attending."
+msgstr "Uživatel %{name} upravil všechny výskyty opakované události, které se účastníte."
+
+#: lib/tymeslot/emails/templates/event_update_notification.ex
+#, elixir-autogen, elixir-format
+msgid "%{name} has updated this and every following occurrence of a repeating event you're attending."
+msgstr "Uživatel %{name} upravil tento a všechny následující výskyty opakované události, které se účastníte."

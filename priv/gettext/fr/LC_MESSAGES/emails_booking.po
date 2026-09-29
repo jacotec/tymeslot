@@ -1060,3 +1060,13 @@ msgstr "%{booker} vous convie en tant qu’invité(e) à cette réunion avec %{o
 #, elixir-autogen, elixir-format
 msgid "Hi %{guest} - %{booker} has invited you as a guest to this meeting with %{organizer}."
 msgstr "Bonjour %{guest} - %{booker} vous convie en tant qu’invité(e) à cette réunion avec %{organizer}."
+
+#: lib/tymeslot/emails/templates/event_update_notification.ex
+#, elixir-autogen, elixir-format
+msgid "%{name} has updated every occurrence of a repeating event you're attending."
+msgstr "%{name} a mis à jour toutes les occurrences d'un événement récurrent auquel vous participez."
+
+#: lib/tymeslot/emails/templates/event_update_notification.ex
+#, elixir-autogen, elixir-format
+msgid "%{name} has updated this and every following occurrence of a repeating event you're attending."
+msgstr "%{name} a mis à jour cette occurrence et toutes les suivantes d'un événement récurrent auquel vous participez."
