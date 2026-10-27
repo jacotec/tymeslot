@@ -26,7 +26,16 @@ defmodule Tymeslot.Availability.Offer do
   capture it whole and nothing here depends on the web layer.
   """
 
-  alias Tymeslot.Availability.{Calculate, GroupSlots, Reach, Schedules, SessionSlots, TimeSlots}
+  alias Tymeslot.Availability.{
+    Calculate,
+    GroupSlots,
+    Reach,
+    Schedules,
+    SessionSlots,
+    SharedOffer,
+    TimeSlots
+  }
+
   alias Tymeslot.Bookings.{Orchestrator, RescheduleSeat}
   alias Tymeslot.Demo
   alias Tymeslot.Infrastructure.AvailabilityCache
@@ -200,7 +209,7 @@ defmodule Tymeslot.Availability.Offer do
       demo?(request) ->
         demo_days(request, start_date, end_date, duration_minutes)
 
-      shared_availability_guests(request) != [] ->
+      SharedOffer.guests(request) != [] ->
         shared_days(request, start_date, end_date, duration_minutes || @default_duration_minutes)
 
       true ->
@@ -274,7 +283,7 @@ defmodule Tymeslot.Availability.Offer do
 
       limit_checker = limit_checker(request, moving_uid(moving), date, date)
 
-      guests = shared_availability_guests(request)
+      guests = SharedOffer.guests(request)
 
       config =
         meeting_type
@@ -345,7 +354,7 @@ defmodule Tymeslot.Availability.Offer do
         meeting_type
         |> Schedules.resolve_for(profile)
         |> config(meeting_type, limit_checker, duration_minutes)
-        |> SharedAvailability.strictest_policy(shared_availability_guests(request))
+        |> SharedAvailability.strictest_policy(SharedOffer.guests(request))
 
       config =
         Calculate.prefetch_schedule_data(
@@ -355,7 +364,7 @@ defmodule Tymeslot.Availability.Offer do
           Date.add(end_date, 1)
         )
 
-      guests = prefetched_guests(request, start_date, end_date)
+      guests = SharedOffer.prefetched(request, start_date, end_date)
       busy = busy_periods(events, user_id, start_date, end_date, moving)
 
       group_context = %{
@@ -391,15 +400,8 @@ defmodule Tymeslot.Availability.Offer do
   end
 
   defp filter_for_guests(slots, date, duration_minutes, {request, moving}, guests, config) do
-    SharedAvailability.filter_slots(
-      slots,
-      date,
-      duration_minutes,
-      request.user_timezone,
-      guests,
-      config,
-      &guest_events(&1, &2, request, moving)
-    )
+    events = &guest_events(&1, &2, request, moving)
+    SharedOffer.filter(slots, date, duration_minutes, request, guests, config, events)
   end
 
   # A guest's calendar is read exactly as the host's is, from their own cached
@@ -410,15 +412,6 @@ defmodule Tymeslot.Availability.Offer do
     with {:ok, events} <- booking_window_events(%{request | profile: guest.profile}, date) do
       {:ok, SharedAvailability.exclude_event(events, moving_uid(moving))}
     end
-  end
-
-  defp shared_availability_guests(request), do: request[:shared_availability_guests] || []
-
-  # The named users' schedules, read once for the whole range.
-  defp prefetched_guests(request, start_date, end_date) do
-    request
-    |> shared_availability_guests()
-    |> SharedAvailability.prefetch_schedule_data(start_date, end_date)
   end
 
   # `day_slots` for every day of the range, keyed by ISO date; the first day
