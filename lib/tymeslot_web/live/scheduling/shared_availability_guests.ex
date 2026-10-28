@@ -23,9 +23,22 @@ defmodule TymeslotWeb.Live.Scheduling.SharedAvailabilityGuests do
 
   use Gettext, backend: TymeslotWeb.Gettext
 
-  import Phoenix.Component, only: [assign: 3]
+  import Phoenix.Component, only: [assign: 3, assign_new: 3]
 
   alias Tymeslot.Scheduling.SharedAvailability
+
+  @doc """
+  Puts the empty defaults on a socket that has not resolved a `with` parameter
+  yet, keeping any values the theme dispatcher resolved before the theme mount.
+  """
+  @spec assign_new_defaults(Phoenix.LiveView.Socket.t()) :: Phoenix.LiveView.Socket.t()
+  def assign_new_defaults(socket) do
+    socket
+    |> assign_new(:shared_availability_guests, fn -> [] end)
+    |> assign_new(:shared_availability_param, fn -> nil end)
+    |> assign_new(:shared_availability_source, fn -> nil end)
+    |> assign_new(:shared_availability_error, fn -> nil end)
+  end
 
   @doc """
   Resolves the `with` parameter against the organiser on the socket.
