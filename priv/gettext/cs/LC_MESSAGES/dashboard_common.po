@@ -358,3 +358,21 @@ msgstr "S kým"
 #, elixir-autogen, elixir-format
 msgid "%{date}, %{time}"
 msgstr "%{date}, %{time}"
+
+#: lib/tymeslot_web/components/dashboard_layout.ex
+#, elixir-autogen, elixir-format
+msgid "Reconnect"
+msgstr "Připojit znovu"
+
+#: lib/tymeslot_web/components/dashboard_layout.ex
+#, elixir-autogen, elixir-format
+msgid "%{names} needs reconnecting. Until you reconnect it, your booking page may not offer times or take bookings."
+msgid_plural "%{names} need reconnecting. Until you reconnect them, your booking page may not offer times or take bookings."
+msgstr[0] "Integraci %{names} je potřeba připojit znovu. Dokud ji znovu nepřipojíte, vaše rezervační stránka nemusí nabízet termíny ani přijímat rezervace."
+msgstr[1] "Integrace %{names} je potřeba připojit znovu. Dokud je znovu nepřipojíte, vaše rezervační stránka nemusí nabízet termíny ani přijímat rezervace."
+msgstr[2] "Integrace %{names} je potřeba připojit znovu. Dokud je znovu nepřipojíte, vaše rezervační stránka nemusí nabízet termíny ani přijímat rezervace."
+
+#: lib/tymeslot_web/components/dashboard_sidebar.ex
+#, elixir-autogen, elixir-format
+msgid "Reconnect %{names}: until you do, your booking page may not take bookings"
+msgstr "Připojte znovu %{names}: do té doby vaše rezervační stránka nemusí přijímat rezervace"

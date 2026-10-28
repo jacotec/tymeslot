@@ -9,6 +9,7 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.LengthComponent do
   use Gettext, backend: TymeslotWeb.Gettext
 
   alias Tymeslot.MeetingTypes.Lengths
+  alias TymeslotWeb.Themes.Shared.Components.MeetingPrice
   alias TymeslotWeb.Themes.Shared.LocalizationHelpers
   alias TymeslotWeb.Themes.Shared.StepEvents
 
@@ -41,6 +42,13 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.LengthComponent do
             <p class="organizer-instruction">
               {dgettext("booking", "How long should the meeting be?")}
             </p>
+            <MeetingPrice.hint
+              :if={!@is_rescheduling}
+              meeting_type={@meeting_type}
+              currency={@host_currency}
+              locale={@locale}
+              class="mt-2"
+            />
 
             <div class="duration-grid">
               <div
@@ -81,7 +89,8 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.LengthComponent do
                 data-testid="back-step"
                 data-intent="back"
               >
-                ← {dgettext("booking", "Back")}
+                <.icon name="hero-arrow-left" class="inline-icon" />
+                {dgettext("booking", "Back")}
               </button>
               <button
                 type="button"
@@ -92,7 +101,8 @@ defmodule TymeslotWeb.Themes.Rhythm.Scheduling.Components.LengthComponent do
                 data-intent="continue"
                 disabled={is_nil(@chosen)}
               >
-                {dgettext("booking", "Next")} →
+                {dgettext("booking", "Next")}
+                <.icon name="hero-arrow-right" class="inline-icon" />
               </button>
             </div>
           </div>

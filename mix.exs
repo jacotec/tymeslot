@@ -4,7 +4,7 @@ defmodule Tymeslot.MixProject do
   def project do
     [
       app: :tymeslot,
-      version: "1.32.0",
+      version: "1.33.0",
       elixir: "~> 1.20",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
@@ -43,7 +43,7 @@ defmodule Tymeslot.MixProject do
         plt_ignore_apps: [:xmerl],
         plt_core_path: "priv/plts",
         plt_local_path: "priv/plts",
-        flags: [:error_handling]
+        flags: [:error_handling, :missing_return, :extra_return]
       ],
       releases: [
         tymeslot: [
@@ -88,7 +88,7 @@ defmodule Tymeslot.MixProject do
   # Specifies which paths to compile per environment. `dev_support/tooling`
   # (the precommit gate, test selection and other dev-only Mix tasks) is never
   # compiled into a release.
-  defp elixirc_paths(:dev), do: ["lib", "dev/support", "dev_support/tooling"]
+  defp elixirc_paths(:dev), do: ["lib", "dev_support/dev_calendar", "dev_support/tooling"]
   defp elixirc_paths(:test), do: ["lib", "test/support", "dev_support/tooling"]
   defp elixirc_paths(:prod), do: ["lib"]
   defp elixirc_paths(_), do: ["lib"]
