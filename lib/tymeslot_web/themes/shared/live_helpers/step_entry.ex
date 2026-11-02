@@ -19,6 +19,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
   import Phoenix.Component, only: [assign: 3]
   import Phoenix.LiveView, only: [connected?: 1, put_flash: 3, redirect: 2]
 
+  alias Phoenix.HTML.Form
   alias Tymeslot.Bookings.SubmissionToken
   alias Tymeslot.CustomFields
   alias Tymeslot.Meetings.SeatBroadcast
@@ -28,6 +29,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
 
   alias TymeslotWeb.Live.Scheduling.{
     AvailabilityHelpers,
+    BookingConfig,
     CalendarHelpers,
     NextAvailable,
     OrganizerHelpers,
@@ -41,7 +43,11 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
   alias TymeslotWeb.Themes.Shared.Journey.Facts.Answers
   alias TymeslotWeb.Themes.Shared.Journey.Progress
   alias TymeslotWeb.Themes.Shared.Journey.Runtime
+  alias TymeslotWeb.Themes.Shared.PathHandlers
   alias TymeslotWeb.Themes.Shared.ReschedulePin
+
+  # The fields the visitor types into the booking form.
+  @booking_fields Enum.map(BookingConfig.booking_field_spec(), &elem(&1, 0))
 
   @doc """
   Assigns a meeting type based on duration if organizer context is present.
@@ -169,7 +175,8 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
   end
 
   # Carries the reschedule context across the redirect so a bad slug doesn't
-  # silently turn a reschedule into a new, duplicate booking.
+  # silently turn a reschedule into a new, duplicate booking, and a demo's
+  # chosen theme so the visitor lands on the theme they were viewing.
   defp invalid_meeting_type_redirect_path(socket) do
     query =
       case socket.assigns[:reschedule_meeting_uid] do
@@ -177,8 +184,11 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
         _other -> %{}
       end
 
-    path = ~p"/#{socket.assigns[:username_context]}"
-    SharedAvailabilityGuests.link_path(path, socket, query)
+    SharedAvailabilityGuests.link_path(
+      ~p"/#{socket.assigns[:username_context]}",
+      socket,
+      Map.merge(query, PathHandlers.demo_theme_param(socket.assigns))
+    )
   end
 
   @doc "Makes `meeting_type` the one this booking is for, with its questions, locations and booking window."
@@ -261,9 +271,10 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
       # booking window is dropped here, and `NextAvailable` lands the booker.
       |> CalendarHelpers.anchor_on_selection()
 
-    # Trigger month availability fetch in background if not already loading or loaded for this month
+    # Trigger the month availability fetch in the background, unless the
+    # meeting type's choice has just started the same one.
     if AvailabilityHelpers.can_fetch_availability?(socket) do
-      AvailabilityHelpers.fetch_month_availability_async(socket)
+      AvailabilityHelpers.ensure_month_availability(socket)
     else
       socket
     end
@@ -315,7 +326,14 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
     slug = socket.assigns[:selected_duration] || params["slug"]
 
     if is_binary(username) && is_binary(slug) do
-      redirect(socket, to: SharedAvailabilityGuests.link_path(~p"/#{username}/#{slug}", socket))
+      redirect(socket,
+        to:
+          SharedAvailabilityGuests.link_path(
+            ~p"/#{username}/#{slug}",
+            socket,
+            PathHandlers.demo_theme_param(socket.assigns)
+          )
+      )
     else
       redirect(socket, to: ~p"/")
     end
@@ -365,11 +383,27 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.StepEntry do
       )
 
     socket
-    |> OrganizerHelpers.setup_form_state(form_data, as: :booking)
+    |> OrganizerHelpers.setup_form_state(Map.merge(form_data, typed_fields(socket)), as: :booking)
     |> GuestBooking.assign_seat_cap()
     |> assign(:client_ip, client_ip)
     |> assign(:submission_token, submission_token)
     |> assign(:submission_processed, false)
+  end
+
+  # What the visitor typed into the form while it was open earlier in this
+  # page view: the attendee moment closes when the time is forgotten (another
+  # day picked, Back on a paged journey, a taken slot) and opens afresh, and
+  # its name, email and message are carried over the prefill rather than
+  # lost. Only those fields: the token and everything else are made anew.
+  # The booking reaching its confirmation, and a restart, drop the form.
+  defp typed_fields(socket) do
+    case socket.assigns[:form] do
+      %Form{params: params} when is_map(params) ->
+        Map.take(params, @booking_fields)
+
+      _none ->
+        %{}
+    end
   end
 
   defp fragment_prefill(%{assigns: %{reschedule_meeting_uid: uid}}) when is_binary(uid), do: %{}
