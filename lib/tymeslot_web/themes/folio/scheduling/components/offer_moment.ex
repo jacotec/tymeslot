@@ -13,7 +13,9 @@ defmodule TymeslotWeb.Themes.Folio.Scheduling.Components.OfferMoment do
   reopens the calendar for it. A type a direct or private link chose cannot
   be changed (`Journey.revisitable?/2`): the moment then shows that type
   alone, as text (`folio-meeting--chosen`), never the organiser's public
-  list.
+  list. A `?with=` link names the other participants under the
+  instruction, and one that cannot be booked says why above the list
+  (`SharedAvailabilityGuests`).
   """
   use TymeslotWeb, :live_component
   use Gettext, backend: TymeslotWeb.Gettext
@@ -63,6 +65,18 @@ defmodule TymeslotWeb.Themes.Folio.Scheduling.Components.OfferMoment do
         {@heading}
       </JourneyComponents.moment_heading>
       <p :if={@instruction} class="folio-muted">{@instruction}</p>
+      <p
+        :if={assigns[:shared_availability_guests] not in [nil, []]}
+        class="folio-muted folio-participants"
+      >
+        {BookingText.additional_participants(@shared_availability_guests)}
+      </p>
+      <div :if={assigns[:shared_availability_error]} class="folio-empty" role="alert">
+        <p class="folio-empty__title">
+          {dgettext("booking", "This booking link can’t be used")}
+        </p>
+        <p class="folio-muted">{@shared_availability_error}</p>
+      </div>
 
       <%= cond do %>
         <% @locked -> %>
@@ -72,12 +86,13 @@ defmodule TymeslotWeb.Themes.Folio.Scheduling.Components.OfferMoment do
               price={BookingText.price_label(@meeting_type, @host_currency, @locale)}
             />
           </div>
-        <% @meeting_types == [] -> %>
+        <% @meeting_types == [] and is_nil(assigns[:shared_availability_error]) -> %>
           <div class="folio-empty">
             <p class="folio-empty__title">
               {dpgettext("booking_voice", "folio", "I'm not taking new bookings at the moment.")}
             </p>
           </div>
+        <% @meeting_types == [] -> %>
         <% true -> %>
           <ul class="folio-meetings">
             <li :for={meeting_type <- @meeting_types}>

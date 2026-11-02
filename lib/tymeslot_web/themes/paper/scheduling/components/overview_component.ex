@@ -14,7 +14,9 @@ defmodule TymeslotWeb.Themes.Paper.Scheduling.Components.OverviewComponent do
   location (`MeetingTypes.location_options/1`, drawn with
   `LocationIcons.icon/1`) and, for a paid type, its price, then, for a
   group type, how many people it takes (`GroupSession.hint`). With no
-  meeting types the right pane says so.
+  meeting types the right pane says so. A `?with=` link names the other
+  participants under the instruction, and one that cannot be booked says
+  why above the list (`SharedAvailabilityGuests`).
 
   The card lays the panes out by its own width (`overview.css`, the frame
   shared with the schedule step in `base.css`): the introduction above the
@@ -85,10 +87,26 @@ defmodule TymeslotWeb.Themes.Paper.Scheduling.Components.OverviewComponent do
           </JourneyComponents.moment_heading>
           <p :if={@greeting} class="paper-intro__greeting">{@greeting}</p>
           <p :if={@instruction} class="paper-intro__instruction">{@instruction}</p>
+          <p
+            :if={assigns[:shared_availability_guests] not in [nil, []]}
+            class="paper-intro__instruction paper-intro__participants"
+          >
+            {BookingText.additional_participants(@shared_availability_guests)}
+          </p>
         </header>
 
         <div class="paper-choices">
-          <div :if={@meeting_types == []} class="paper-empty">
+          <div :if={assigns[:shared_availability_error]} class="paper-empty" role="alert">
+            <p class="paper-empty__title">
+              {dgettext("booking", "This booking link can’t be used")}
+            </p>
+            <p class="paper-empty__text">{@shared_availability_error}</p>
+          </div>
+
+          <div
+            :if={@meeting_types == [] and is_nil(assigns[:shared_availability_error])}
+            class="paper-empty"
+          >
             <p class="paper-empty__title">{dgettext("booking", "No meeting types available")}</p>
             <p class="paper-empty__text">{dgettext("booking", "Please contact the organiser")}</p>
           </div>

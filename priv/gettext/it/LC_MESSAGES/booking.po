@@ -731,6 +731,8 @@ msgstr "Uno dei partecipanti indicati in questo link non è prenotabile. Control
 msgid "This meeting type can’t be booked together with other participants."
 msgstr "Questo tipo di appuntamento non può essere prenotato insieme ad altri partecipanti."
 
+#: lib/tymeslot_web/themes/folio/scheduling/components/offer_moment.ex
+#: lib/tymeslot_web/themes/paper/scheduling/components/overview_component.ex
 #: lib/tymeslot_web/themes/quill/scheduling/components/overview_component.ex
 #: lib/tymeslot_web/themes/rhythm/scheduling/components/overview_component.ex
 #, elixir-autogen, elixir-format

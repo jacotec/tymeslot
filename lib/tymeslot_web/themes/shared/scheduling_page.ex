@@ -31,6 +31,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingPage do
   alias TymeslotWeb.Themes.Shared.Components.{AwaitingPayment, DemoThemeSwitcher, ErrorComponent}
   alias TymeslotWeb.Themes.Shared.Journey
   alias TymeslotWeb.Themes.Shared.Journey.Components, as: JourneyComponents
+  alias TymeslotWeb.Themes.Shared.Journey.Progress
   alias TymeslotWeb.Themes.Shared.PathHandlers
 
   @page_keys [:page_wrapper, :page_parts, :page_navigator]
@@ -110,7 +111,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingPage do
         [{component, "#{state}-step", %{}}]
 
       :error ->
-        for {moment, moment_state} <- journey.navigator.visible(journey, assigns),
+        for {moment, moment_state} <- visible_moments(journey, assigns),
             do:
               {moment.component, "#{moment.key}-step",
                %{moment: moment.key, moment_state: moment_state}}
@@ -125,6 +126,22 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingPage do
     do: Map.put(assigns, :current_state, :overview)
 
   defp overview_for_unusable_link(assigns), do: assigns
+
+  # A journey showing several moments at once (Folio) ends at the one that
+  # chooses the meeting type, so an unusable link offers no times to pick.
+  defp visible_moments(journey, %{shared_availability_error: error} = assigns)
+       when is_binary(error) do
+    last = Progress.moment_for(journey, :meeting_type)
+
+    {before, rest} =
+      Enum.split_while(journey.navigator.visible(journey, assigns), fn {moment, _state} ->
+        moment.key != last
+      end)
+
+    before ++ Enum.take(rest, 1)
+  end
+
+  defp visible_moments(journey, assigns), do: journey.navigator.visible(journey, assigns)
 
   defp step_assigns(assigns, extra), do: assigns |> Map.drop(@page_keys) |> Map.merge(extra)
 end
