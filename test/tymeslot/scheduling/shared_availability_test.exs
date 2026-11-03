@@ -7,6 +7,7 @@ defmodule Tymeslot.Scheduling.SharedAvailabilityTest do
   import Tymeslot.Factory
 
   alias Tymeslot.Availability.AvailabilityScheduleSchema
+  alias Tymeslot.Availability.Schedules
   alias Tymeslot.Meetings.Guests
   alias Tymeslot.Repo
   alias Tymeslot.Scheduling.SharedAvailability
@@ -195,6 +196,46 @@ defmodule Tymeslot.Scheduling.SharedAvailabilityTest do
                min_advance_hours: 24,
                max_advance_booking_days: 14
              } = SharedAvailability.strictest_policy(host_config, guests)
+    end
+
+    test "compares the guests' schedules with the host's meeting-type overrides" do
+      host = host()
+      %{profile: profile} = insert_bookable_guest("michael")
+
+      Repo.update_all(
+        from(s in AvailabilityScheduleSchema,
+          where: s.profile_id == ^profile.id
+        ),
+        set: [
+          buffer_before_minutes: 0,
+          buffer_after_minutes: 30,
+          min_advance_hours: 1,
+          advance_booking_days: 60
+        ]
+      )
+
+      meeting_type =
+        insert(:meeting_type,
+          user: host,
+          buffer_before_minutes: 20,
+          buffer_after_minutes: 10,
+          min_advance_hours: 48,
+          advance_booking_days: 30
+        )
+
+      {:ok, guests} = SharedAvailability.resolve(["michael"], host.id)
+
+      # The host's side is the meeting type's override, not its schedule's
+      # value; the guest's stricter buffer after still wins.
+      assert %{
+               buffer_before_minutes: 20,
+               buffer_after_minutes: 30,
+               min_advance_hours: 48,
+               max_advance_booking_days: 30
+             } =
+               host.id
+               |> Schedules.booking_config(meeting_type)
+               |> SharedAvailability.strictest_policy(guests)
     end
 
     test "leaves the config untouched without guests" do
