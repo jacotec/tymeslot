@@ -14,6 +14,7 @@ defmodule TymeslotWeb.Live.Scheduling.SharedAvailabilityGuestsTest do
   import Tymeslot.Factory
 
   alias Ecto.Changeset
+  alias Tymeslot.BookingPages
   alias Tymeslot.Meetings.Guests
   alias Tymeslot.Profiles
   alias Tymeslot.Repo
@@ -127,6 +128,58 @@ defmodule TymeslotWeb.Live.Scheduling.SharedAvailabilityGuestsTest do
         refute html =~ ~s(id="when-step")
         refute html =~ ~s(data-testid="paper-schedule")
       end
+    end
+  end
+
+  # A booking page (`/<username>/<page>`) lists its own meeting types; a
+  # combined link to it must name the participants and keep `?with=` when a
+  # type's link at the host's address is sent on to the page.
+  describe "on a booking page" do
+    setup %{host: host} do
+      profile = Profiles.get_profile(host.id)
+      page = insert(:booking_page, profile: profile, slug: "consulting")
+
+      for {name, allow_guests} <- [{"Page call", true}, {"Page solo", false}] do
+        type =
+          insert(:meeting_type,
+            user: host,
+            name: name,
+            allow_guests: allow_guests,
+            is_private: true
+          )
+
+        :ok = BookingPages.set_meeting_type(page, type.id, true)
+      end
+
+      :ok
+    end
+
+    test "names the participants and offers only the page's types with guests", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/marco/consulting?with=michael")
+
+      assert html =~ "Additional participants: Michael Example"
+      assert html =~ "Page call"
+      refute html =~ "Page solo"
+    end
+
+    test "keeps the participants when a type's link is sent on to its page", %{conn: conn} do
+      assert {:error, {:redirect, %{to: to}}} = live(conn, "/marco/page-call?with=michael")
+      assert to == "/marco/consulting/page-call?with=michael"
+
+      # They still apply there: a type of the page that can't take guests
+      # refuses them once sent on.
+      assert {:error, {:redirect, %{to: to}}} = live(conn, "/marco/page-solo?with=michael")
+      assert to == "/marco/consulting/page-solo?with=michael"
+
+      {:ok, _view, html} = live(conn, to)
+      assert html =~ "This meeting type can’t be booked together with other participants."
+    end
+
+    test "says why a page link naming an unknown participant can't be used", %{conn: conn} do
+      {:ok, _view, html} = live(conn, "/marco/consulting?with=michael,nobody")
+
+      assert html =~ "One of the participants named in this link"
+      refute html =~ "Page call"
     end
   end
 end
