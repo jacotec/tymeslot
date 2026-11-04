@@ -378,8 +378,8 @@ defmodule TymeslotWeb.Router do
       live "/dashboard/video-integration", DashboardLive, :video_integration
       live "/dashboard/integrations", DashboardLive, :integrations
       live "/dashboard/automation", DashboardLive, :automation
-      live "/dashboard/theme", DashboardLive, :theme
-      live "/dashboard/theme/customize/:theme_id", DashboardLive, :theme_customization
+      live "/dashboard/pages", DashboardLive, :theme
+      live "/dashboard/pages/customize/:theme_id", DashboardLive, :theme_customization
       live "/dashboard/meetings", DashboardLive, :meetings
       live "/dashboard/polls", DashboardLive, :polls
       live "/dashboard/embed", DashboardLive, :embed
@@ -388,6 +388,11 @@ defmodule TymeslotWeb.Router do
     end
 
     post "/dashboard/payments/connect", Dashboard.PaymentsController, :connect
+
+    # The booking pages screen was the Theme screen; its old addresses live on
+    # in bookmarks and sent emails.
+    get "/dashboard/theme", Dashboard.PagesRedirectController, :pages
+    get "/dashboard/theme/customize/:theme_id", Dashboard.PagesRedirectController, :customize
   end
 
   # =============================================================================
@@ -550,8 +555,18 @@ defmodule TymeslotWeb.Router do
       ] do
       live "/:username", Themes.Core.Dispatcher, :overview
       live "/:username/thank-you", Themes.Core.Dispatcher, :confirmation
+      # A meeting type of the username's page, or the start page of one of its
+      # booking pages: `TymeslotWeb.Live.Scheduling.PageAddress` tells them
+      # apart, since a page's slug and a type's never meet within a profile.
       live "/:username/:slug", Themes.Core.Dispatcher, :schedule
+      # Before `/:username/:page/:slug`. Where `:slug` is a page's,
+      # `PageAddress` reads it as that page's type slugged "book".
       live "/:username/:slug/book", Themes.Core.Dispatcher, :booking
+      # A booking page's flow, `/:username/:page` being its start page above.
+      # "thank-you" is no type's or page's slug, so its route goes first.
+      live "/:username/:page/thank-you", Themes.Core.Dispatcher, :confirmation
+      live "/:username/:page/:slug", Themes.Core.Dispatcher, :schedule
+      live "/:username/:page/:slug/book", Themes.Core.Dispatcher, :booking
     end
   end
 

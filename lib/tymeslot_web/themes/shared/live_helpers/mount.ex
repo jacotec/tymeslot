@@ -18,6 +18,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.Mount do
     AvailabilityHelpers,
     CalendarHelpers,
     OrganizerHelpers,
+    PageAddress,
     PreviewToken,
     SharedAvailabilityGuests,
     ThemeUtils
@@ -58,7 +59,7 @@ defmodule TymeslotWeb.Themes.Shared.LiveHelpers.Mount do
       if socket.assigns[:organizer_profile] do
         socket
       else
-        OrganizerHelpers.handle_username_resolution(socket, params["username"])
+        OrganizerHelpers.handle_username_resolution(socket, PageAddress.address(params))
       end
 
     # `?with=michael,sandy` adds guests every offered time must also suit.

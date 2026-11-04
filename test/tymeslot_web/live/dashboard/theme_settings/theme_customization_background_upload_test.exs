@@ -20,6 +20,7 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.ThemeCustomizationBackgroundUpload
 
   import Mox
   import Tymeslot.DashboardTestHelpers
+  import Tymeslot.Factory
 
   alias Ecto.Changeset
   alias Tymeslot.Media.Transcoder
@@ -71,7 +72,7 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.ThemeCustomizationBackgroundUpload
   end
 
   defp open_tab(conn, theme_id, kind) do
-    {:ok, view, _html} = live(conn, "/dashboard/theme/customize/#{theme_id}")
+    {:ok, view, _html} = live(conn, "/dashboard/pages/customize/#{theme_id}")
 
     view
     |> element("button[phx-click='theme:set_browsing_type'][phx-value-type='#{kind}']")
@@ -121,7 +122,7 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.ThemeCustomizationBackgroundUpload
 
     test "a successful upload pushes upload-complete so the AutoUpload hook clears the picker",
          %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/dashboard/theme")
+      {:ok, view, _html} = live(conn, ~p"/dashboard/pages")
 
       view
       |> element("button[phx-value-theme='1']", "Customise Style")
@@ -161,7 +162,7 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.ThemeCustomizationBackgroundUpload
           "background_video_path" => video_rel
         })
 
-      {:ok, view, _html} = live(conn, ~p"/dashboard/theme")
+      {:ok, view, _html} = live(conn, ~p"/dashboard/pages")
 
       view
       |> element("button[phx-value-theme='1']", "Customise Style")
@@ -189,6 +190,36 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.ThemeCustomizationBackgroundUpload
       assert saved.settings["background_image_path"] =~ "themes/#{profile.id}/1/images/"
       assert saved.settings["background_video_path"] == video_rel
       assert File.exists?(video_abs)
+    end
+
+    test "a background uploaded on a booking page's tab is the page's", %{
+      conn: conn,
+      profile: profile
+    } do
+      profile = profile |> Changeset.change(username: "joern") |> Repo.update!()
+      page = insert(:booking_page, profile: profile, slug: "einfachiso", booking_theme: "1")
+      {:ok, view, _html} = live(conn, ~p"/dashboard/pages/customize/1?#{[page: page.id]}")
+
+      view
+      |> element("button[phx-click='theme:set_browsing_type'][phx-value-type='image']")
+      |> render_click()
+
+      image = %{
+        last_modified: System.system_time(:millisecond),
+        name: "background.png",
+        content: @valid_png,
+        type: "image/png"
+      }
+
+      view
+      |> file_input("#theme-background-image-form", :background_image_path, [image])
+      |> render_upload("background.png")
+
+      assert_push_event(view, "upload-complete", %{})
+
+      saved = ThemeCustomizations.get_by_profile_and_theme({profile.id, page.id}, "1")
+      assert saved.settings["background_image_path"] =~ "themes/#{profile.id}/1/images/"
+      assert ThemeCustomizations.get_by_profile_and_theme(profile.id, "1") == nil
     end
 
     test "publishes a WebP background without its EXIF location", %{
