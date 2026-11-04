@@ -89,6 +89,7 @@ defmodule Tymeslot.Bookings.Create do
   @spec execute(meeting_params(), form_data(), keyword()) :: execute_result()
   def execute(meeting_params, form_data, opts \\ []) do
     with {:ok, booking_data} <- prepare_booking_data(meeting_params, form_data),
+         {:ok, booking_data} <- put_shared_availability_guests(booking_data, meeting_params),
          :ok <- validate_custom_field_answers(booking_data),
          {:ok, :validated} <- validate_booking(booking_data) do
       create_meeting_and_all_side_effects_atomically(booking_data, opts)
@@ -132,8 +133,7 @@ defmodule Tymeslot.Bookings.Create do
         Lengths.parse(meeting_params.duration)
       )
 
-    with {:ok, shared_availability_guests} <- resolve_shared_availability_guests(meeting_params),
-         {:ok, date_string} <- normalize_date_input(meeting_params.date),
+    with {:ok, date_string} <- normalize_date_input(meeting_params.date),
          {:ok, {start_datetime, end_datetime}} <-
            Validation.parse_meeting_times(
              date_string,
@@ -164,7 +164,6 @@ defmodule Tymeslot.Bookings.Create do
         custom_fields_snapshot: Map.get(meeting_params, :custom_fields_snapshot, []),
         custom_field_answers: Map.get(meeting_params, :custom_field_answers, %{}),
         guest_emails: Map.get(meeting_params, :guest_emails, []),
-        shared_availability_guests: shared_availability_guests,
         utm_source: Map.get(meeting_params, :utm_source),
         utm_medium: Map.get(meeting_params, :utm_medium),
         utm_campaign: Map.get(meeting_params, :utm_campaign),
@@ -191,6 +190,11 @@ defmodule Tymeslot.Bookings.Create do
   # The users named in the booking link (`?with=`) are resolved again here from
   # their usernames rather than trusted from the page, which may have gone
   # stale: one of them could have lost their public page since it rendered.
+  defp put_shared_availability_guests(booking_data, meeting_params) do
+    with {:ok, guests} <- resolve_shared_availability_guests(meeting_params),
+         do: {:ok, Map.put(booking_data, :shared_availability_guests, guests)}
+  end
+
   defp resolve_shared_availability_guests(meeting_params) do
     case {Map.get(meeting_params, :shared_availability_usernames, []),
           Map.get(meeting_params, :organizer_user_id)} do
