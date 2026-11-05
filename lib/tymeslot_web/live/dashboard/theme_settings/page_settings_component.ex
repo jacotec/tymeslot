@@ -10,7 +10,8 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.PageSettingsComponent do
   works the meeting types' existing "unlisted" flag; on a booking page it works
   the page's listings (`BookingPages.set_meeting_type/3`). Either way a flip is
   a meeting type write, under the same rate limit as the meeting type screen's
-  own switches.
+  own switches, and sends the state it asks for (`phx-value-listed`), so it
+  does what the host saw even when another tab changed the listing meanwhile.
 
   `read_only` is set for a booking page its owner may no longer change
   (`BookingPages.editable?/1`): its fields and switches are disabled, and
@@ -33,6 +34,13 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.PageSettingsComponent do
   # A meeting type's description is shown beside its switch up to this long;
   # a longer one would push the switches apart.
   @short_description 80
+
+  # Events that act on a named page. The main page's tab renders none of
+  # their controls, so there they can only arrive hand-sent.
+  @page_events ~w(validate_details save_details show_delete confirm_delete)
+
+  # The two values a listing switch sends as `listed`.
+  @listed_values ~w(true false)
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
@@ -156,6 +164,7 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.PageSettingsComponent do
               on_change="toggle_type"
               target={@myself}
               phx-value-id={type.id}
+              phx-value-listed={to_string(not listed?(@page, @memberships, type))}
             />
           </div>
         </fieldset>
@@ -220,13 +229,20 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.PageSettingsComponent do
   end
 
   @impl Phoenix.LiveComponent
-  def handle_event("toggle_type", %{"id" => id}, socket) do
+  def handle_event(event, _params, %{assigns: %{page: nil}} = socket) when event in @page_events,
+    do: {:noreply, socket}
+
+  def handle_event("toggle_type", %{"id" => id, "listed" => listed}, socket)
+      when is_binary(id) and listed in @listed_values do
     user_id = socket.assigns.profile.user_id
 
     with_rate_limit(RateLimiter.check(:meeting_type_write, user_id), socket, fn ->
-      do_toggle_type(socket, id, user_id)
+      do_toggle_type(socket, id, listed == "true", user_id)
     end)
   end
+
+  # Sent by hand without an id or a `listed` it can read: ignored.
+  def handle_event("toggle_type", _params, socket), do: {:noreply, socket}
 
   def handle_event("validate_details", %{"page" => params}, socket) do
     changeset = BookingPages.change_details(socket.assigns.page, params)
@@ -289,10 +305,10 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.PageSettingsComponent do
     end
   end
 
-  defp do_toggle_type(socket, id, user_id) do
+  defp do_toggle_type(socket, id, listed?, user_id) do
     with {type_id, ""} <- Integer.parse(id),
          %{} = type <- MeetingTypes.get_meeting_type(type_id, user_id),
-         :ok <- toggle(socket.assigns.page, socket.assigns.memberships, type) do
+         :ok <- set_listed(socket.assigns.page, type, listed?) do
       send(self(), {:meeting_type_changed})
       Flash.info(dgettext("dashboard_booking_pages", "Booking page saved"))
       {:noreply, load_listings(socket)}
@@ -344,15 +360,14 @@ defmodule TymeslotWeb.Dashboard.ThemeSettings.PageSettingsComponent do
   defp page_form(changeset, id), do: to_form(changeset, as: :page, id: "#{id}-details")
 
   # The profile's own page is the type's existing "unlisted" flag.
-  defp toggle(nil, _memberships, type) do
-    case MeetingTypes.set_private(type, !type.is_private) do
+  defp set_listed(nil, type, listed?) do
+    case MeetingTypes.set_private(type, not listed?) do
       {:ok, _type} -> :ok
       {:error, _reason} -> :error
     end
   end
 
-  defp toggle(page, memberships, type),
-    do: BookingPages.set_meeting_type(page, type.id, not listed?(page, memberships, type))
+  defp set_listed(page, type, listed?), do: BookingPages.set_meeting_type(page, type.id, listed?)
 
   defp listed?(nil, _memberships, type), do: not type.is_private
 

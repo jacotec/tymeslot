@@ -23,7 +23,8 @@ defmodule Tymeslot.Auth.Invitations do
 
   An invitation is pending while its token hash is stored. Accepting it, or
   any other change to the account's credentials (a password reset requested
-  through "forgot password"), clears the hash.
+  through "forgot password"), clears the hash. An admin who cancels it
+  (`revoke/2`) deletes the invited account.
   """
 
   use Gettext, backend: TymeslotWeb.Gettext
@@ -38,8 +39,11 @@ defmodule Tymeslot.Auth.Invitations do
     SocialAuthentication,
     UserQueries,
     UserSchema,
+    UserTokenQueries,
     Validation
   }
+
+  alias Tymeslot.Auth.AccountDeletion.Operator
 
   alias Tymeslot.Auth.OAuth.Providers
 
@@ -128,6 +132,51 @@ defmodule Tymeslot.Auth.Invitations do
       deliver(user, token)
     end
   end
+
+  @doc """
+  Cancels `user_id`'s pending invitation on behalf of the admin `actor`, by
+  deleting the invited account: it has no password, identity or data of its
+  own yet.
+
+  The link stops working when this returns, before the deletion job has run:
+  the token hash is cleared in the same transaction that schedules the
+  deletion (`Tymeslot.Auth.AccountDeletion.Operator`), and a queued
+  invitation email whose hash no longer matches is discarded. An acceptance
+  re-reads the token under the same row lock, so whichever commits first
+  wins: an accepted invitation is refused with `{:error, :not_invited}`, and
+  an acceptance after the revoke, a social one already at the provider
+  included, finds no live token.
+  """
+  @spec revoke(AdminRoles.actor(), pos_integer()) ::
+          {:ok, UserSchema.t()} | {:error, :not_found | :not_invited | Operator.error()}
+  def revoke(actor, user_id) do
+    with :ok <- AdminRoles.authorise(actor),
+         {:ok, user} <- revoke_and_delete(actor, user_id) do
+      Logger.info("Account invitation revoked",
+        user_id: user.id,
+        actor_id: actor_id(actor),
+        event: :account_invitation_revoked
+      )
+
+      {:ok, user}
+    end
+  end
+
+  # Inside the deletion's own transaction, on the account it has locked (the
+  # admins first, so an invitee promoted to admin cannot deadlock against a
+  # role change): only a still pending invitation is cancelled, and its link
+  # stops working in the same commit.
+  defp revoke_and_delete(actor, user_id) do
+    Operator.delete_now(actor, user_id, on_target: &revoke_pending/1)
+  end
+
+  defp revoke_pending(user) do
+    with :ok <- ensure_pending(user) do
+      UserTokenQueries.clear_invitation_token(user)
+    end
+  end
+
+  defp ensure_pending(user), do: if(pending?(user), do: :ok, else: {:error, :not_invited})
 
   @doc """
   Resolves an invitation link's token to the invited account, without

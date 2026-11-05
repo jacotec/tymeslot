@@ -246,6 +246,21 @@ defmodule TymeslotWeb.Dashboard.BookingPagesManageTest do
 
   # Left on the deleted page's colour editor, the next edit would silently
   # change the main page's colours instead.
+  # The main page's tab renders none of the page controls; the same events
+  # sent by hand are ignored rather than crashing the dashboard.
+  test "page events sent by hand on the main page's tab leave the dashboard running", ctx do
+    {:ok, view, _html} = live(ctx.conn, ~p"/dashboard/pages")
+    target = with_target(view, "#page-settings")
+
+    render_click(target, "show_delete", %{})
+    render_click(target, "confirm_delete", %{})
+    render_change(target, "validate_details", %{"page" => %{"name" => "x"}})
+    render_submit(target, "save_details", %{"page" => %{"name" => "x"}})
+
+    assert has_element?(view, "#page-settings")
+    assert BookingPages.list(ctx.profile.id) == []
+  end
+
   test "a page deleted in another tab is announced and its tab left", ctx do
     page = insert(:booking_page, profile: ctx.profile, slug: "einfachiso")
     {:ok, _deleted} = BookingPages.delete(page)
@@ -308,6 +323,40 @@ defmodule TymeslotWeb.Dashboard.BookingPagesManageTest do
 
     assert Repo.reload!(type).is_private
     assert has_element?(view, "#page-settings-type-#{type.id}[aria-checked='false']")
+  end
+
+  test "a listing switch sent by hand without an id or state it can read is ignored", ctx do
+    type = insert(:meeting_type, user: ctx.user, name: "Automation call", is_private: false)
+    {:ok, view, _html} = live(ctx.conn, ~p"/dashboard/pages")
+    target = with_target(view, "#page-settings")
+
+    render_click(target, "toggle_type", %{"id" => to_string(type.id)})
+    render_click(target, "toggle_type", %{"id" => to_string(type.id), "listed" => "maybe"})
+    render_click(target, "toggle_type", %{"id" => %{"x" => "1"}, "listed" => "false"})
+
+    assert has_element?(view, "#page-settings-type-#{type.id}[aria-checked='true']")
+    refute Repo.reload!(type).is_private
+  end
+
+  test "a switch does what the host saw when another tab changed it meanwhile", ctx do
+    page = insert(:booking_page, profile: ctx.profile, slug: "einfachiso")
+    type = insert(:meeting_type, user: ctx.user, name: "Automation call", is_private: false)
+    {:ok, main, _html} = live(ctx.conn, ~p"/dashboard/pages")
+    {:ok, on_page, _html} = live(ctx.conn, ~p"/dashboard/pages?#{[page: page.id]}")
+
+    # Another tab unlists the type from the username's page; this one still
+    # shows it listed, and the host switches it off.
+    type |> Changeset.change(is_private: true) |> Repo.update!()
+    main |> element("#page-settings-type-#{type.id}") |> render_click()
+    assert Repo.reload!(type).is_private
+
+    # A page's switch likewise sets the state it asks for, not the opposite
+    # of the listings held here: asking twice to list leaves it listed.
+    switch = "#page-settings-#{page.id}-type-#{type.id}"
+    on_page |> element(switch) |> render_click(%{"listed" => "true"})
+    on_page |> element(switch) |> render_click(%{"listed" => "true"})
+
+    assert BookingPages.memberships(ctx.profile.id)[type.id] == MapSet.new([page.id])
   end
 
   test "a meeting type that is not the host's is not listed, and says so", ctx do
