@@ -192,6 +192,14 @@ defmodule TymeslotWeb.Router do
     get "/guest/:token/:response", GuestRsvpController, :confirm
     post "/guest/:token/:response", GuestRsvpController, :submit
 
+    # An admin's invitation from the emailed link. GET renders the page to
+    # choose how to sign in; POST spends the token with a password, and the
+    # provider route starts a social sign-in that spends it on the callback
+    # (a POST, so another site cannot start one with an invitation it holds).
+    get "/auth/invitation/:token", InvitationController, :show
+    post "/auth/invitation/:token", InvitationController, :accept
+    post "/auth/invitation/:token/:provider", InvitationController, :social
+
     # The one page an account pending deletion can reach while signed in.
     # It has to come before "/auth/:provider", which would otherwise take it.
     get "/auth/restore", AccountRestoreController, :show
@@ -221,7 +229,6 @@ defmodule TymeslotWeb.Router do
     get "/auth/zoom/video/callback", VideoOAuthController, :zoom_callback
 
     # Session management routes
-    delete "/auth/logout", SessionController, :delete
     get "/auth/verify-complete/:token", SessionController, :confirm_verification
     post "/auth/verify-complete/:token", SessionController, :verify_and_login
   end
@@ -232,6 +239,32 @@ defmodule TymeslotWeb.Router do
     pipe_through [:browser, TymeslotWeb.Plugs.RedirectIfAuthenticated]
 
     post "/auth/session", SessionController, :create
+  end
+
+  # Signing out skips the CSRF check. Its token goes stale whenever the session
+  # changes (signed out in another tab, cookie expired), and a stale Sign Out
+  # should still sign out rather than fail. Nothing is lost: the worst a forged
+  # request could do is sign someone out, and the SameSite=Lax session cookie
+  # is not sent on a cross-site form post anyway. The skip below covers Sobelow's
+  # Config.CSRF finding for the deliberate omission and its Config.CSP false
+  # positive (SecurityHeadersPlug sets the policy); unlike a .sobelow-skips
+  # entry, it does not go stale when lines above it move.
+  # sobelow_skip ["Config.CSRF", "Config.CSP"]
+  pipeline :sign_out do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_secure_browser_headers
+    plug TymeslotWeb.Plugs.SecurityHeadersPlug
+    plug TymeslotWeb.Plugs.FetchCurrentUser
+    plug TymeslotWeb.Plugs.SetLoggerMetadata
+    plug TymeslotWeb.Plugs.LocalePlug, prefer_user_locale: true, surface: :admin
+  end
+
+  scope "/", TymeslotWeb do
+    pipe_through :sign_out
+
+    delete "/auth/logout", SessionController, :delete
   end
 
   # =============================================================================
