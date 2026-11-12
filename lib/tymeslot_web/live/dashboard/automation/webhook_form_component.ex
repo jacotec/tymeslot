@@ -166,6 +166,7 @@ defmodule TymeslotWeb.Dashboard.Automation.WebhookFormComponent do
                 </span>
               </label>
               <div class="flex gap-2">
+                <%!-- raw-input: read-only token display in the row with the Copy and Regenerate buttons; <.input> cannot pass readonly --%>
                 <input
                   type="text"
                   value={@webhook.webhook_token}
@@ -222,6 +223,13 @@ defmodule TymeslotWeb.Dashboard.Automation.WebhookFormComponent do
         />
 
         <%!-- Form Actions --%>
+        <p
+          :if={!@can_submit}
+          id="webhook-submit-hint"
+          class="pt-4 text-right text-token-xs text-tymeslot-500"
+        >
+          {get_disabled_reason(assigns)}
+        </p>
         <div class="flex justify-end gap-3 pt-4">
           <.action_button
             variant={:secondary}
@@ -234,7 +242,7 @@ defmodule TymeslotWeb.Dashboard.Automation.WebhookFormComponent do
             type="submit"
             variant={:primary}
             disabled={!@can_submit}
-            title={if !@can_submit, do: get_disabled_reason(assigns), else: ""}
+            aria-describedby={if(!@can_submit, do: "webhook-submit-hint")}
           >
             {if @mode == :create,
               do: dgettext("dashboard_automation", "Create Webhook"),

@@ -68,7 +68,9 @@ defmodule TymeslotWeb.Themes.Shared.DefaultPages do
         organizer_profile: assigns[:organizer_profile],
         participant: assigns[:participant],
         link_request: assigns[:link_request],
-        invalid_link: assigns[:invalid_link] || false
+        invalid_link: assigns[:invalid_link] || false,
+        poll_field_errors: assigns[:poll_field_errors] || %{},
+        poll_draft: assigns[:poll_draft] || %{}
       )
 
     ~H"""
@@ -107,6 +109,8 @@ defmodule TymeslotWeb.Themes.Shared.DefaultPages do
       voting_open={@voting_open}
       participant={@participant}
       link_request={@link_request}
+      field_errors={@poll_field_errors}
+      draft={@poll_draft}
       invalid_link={@invalid_link}
     />
     """
@@ -130,7 +134,11 @@ defmodule TymeslotWeb.Themes.Shared.DefaultPages do
   defp body(%{page: :payment_cancelled} = assigns) do
     ~H"""
     <MeetingPageBodies.status_icon icon="hero-x-circle" tone="danger" />
-    <PaymentReturnComponents.cancelled_body rebook_path={@rebook_path} />
+    <PaymentReturnComponents.cancelled_body
+      rebook_path={@rebook_path}
+      invitation_held={assigns[:invitation_held] || false}
+      invitation_withheld={assigns[:invitation_withheld] || false}
+    />
     """
   end
 

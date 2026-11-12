@@ -127,6 +127,14 @@ defmodule Tymeslot.MeetingTypes do
   end
 
   @doc """
+  Returns true if the user has at least one meeting type with a price set.
+  """
+  @spec has_priced_meeting_types?(integer()) :: boolean()
+  def has_priced_meeting_types?(user_id) do
+    MeetingTypeQueries.has_priced_meeting_types?(user_id)
+  end
+
+  @doc """
   Returns true if the user has at least one active meeting type.
   """
   @spec has_active_meeting_types?(integer()) :: boolean()
@@ -301,6 +309,22 @@ defmodule Tymeslot.MeetingTypes do
           {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
   def set_private(meeting_type, is_private) when is_boolean(is_private) do
     MeetingTypeQueries.set_visibility(meeting_type, %{is_private: is_private})
+  end
+
+  @doc """
+  Sets whether a meeting type is invitation-only. An invitation-only type is
+  hidden from every public listing and is booked only through an invitation
+  link. Only one-to-one types qualify; a group type gets an error on
+  `:invitation_only`.
+
+  Switching it off leaves the type's invitation links in place but makes them
+  resolve as not found; switching it back on revives every one that was never
+  used, revoked or let expire (see `Tymeslot.Invitations`).
+  """
+  @spec set_invitation_only(Ecto.Schema.t(), boolean()) ::
+          {:ok, Ecto.Schema.t()} | {:error, Ecto.Changeset.t()}
+  def set_invitation_only(meeting_type, invitation_only) when is_boolean(invitation_only) do
+    MeetingTypeQueries.set_visibility(meeting_type, %{invitation_only: invitation_only})
   end
 
   @doc """

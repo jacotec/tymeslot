@@ -7,6 +7,7 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingInit do
 
   alias Phoenix.LiveView
   alias Tymeslot.Integrations.Calendar.Management
+  alias TymeslotWeb.Components.Shared.PickerPreferences
   alias TymeslotWeb.Live.Scheduling.OrganizerHelpers
   alias TymeslotWeb.Live.Scheduling.SharedAvailabilityGuests
   alias TymeslotWeb.Live.Scheduling.WeekSlots
@@ -21,6 +22,9 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingInit do
     |> assign(:duration, nil)
     |> assign(:meeting_type, nil)
     |> assign(:meeting_type_pinned, false)
+    # The invitation an invitation-only type was entered on, set by the
+    # entry gate (`StepEntry`); nil for every other booking.
+    |> assign(:invitation, nil)
     # Which day the calendar's weeks start on; `assign_week_start/1` settles
     # it once the organiser is resolved, and this keeps a socket that never
     # gets that far on a defined value. The calendar window (current_year,
@@ -56,6 +60,8 @@ defmodule TymeslotWeb.Themes.Shared.SchedulingInit do
     week_start =
       socket.assigns[:visitor_week_start] ||
         Management.get_week_start(socket.assigns[:organizer_user_id])
+
+    PickerPreferences.put_week_start(week_start)
 
     assign(socket, :week_start, week_start)
   end

@@ -391,26 +391,26 @@ defmodule TymeslotWeb.Components.Dashboard.Integrations.Calendar.SharedFormCompo
 
   @spec locked_url_field(map()) :: Phoenix.LiveView.Rendered.t()
   def locked_url_field(assigns) do
+    assigns =
+      assign(assigns, :hint_id, "locked-url-hint-" <> String.replace(assigns.name, ~r/\W+/, "-"))
+
     ~H"""
     <div class="form-field-wrapper">
-      <div class="flex items-center gap-1.5 mb-2">
+      <div class="mb-2">
         <span class="label mb-0">{dgettext("dashboard_calendar_providers", "Server URL")}</span>
-        <span class="text-tymeslot-400 shrink-0">
-          <.icon name="hero-information-circle-mini" class="w-3.5 h-3.5" />
-        </span>
       </div>
       <input type="hidden" name={@name} value={@value} />
-      <div class="relative" title={@tooltip}>
-        <div class="absolute left-4 top-1/2 -translate-y-1/2 text-tymeslot-300 pointer-events-none">
-          <.icon name="hero-lock-closed" class="w-5 h-5" />
-        </div>
-        <input
-          type="text"
-          value={@value}
-          disabled
-          class="input input-with-icon opacity-60 cursor-not-allowed bg-tymeslot-100 text-tymeslot-500"
-        />
-      </div>
+      <%!-- Why it is locked is shown under the field: a disabled control
+           receives no pointer events or focus, so nothing can reveal a hint
+           on it, and touch screens could not anyway. --%>
+      <.input
+        type="text"
+        value={@value}
+        disabled
+        icon="hero-lock-closed"
+        aria-describedby={@hint_id}
+      />
+      <p id={@hint_id} class="mt-2 text-token-xs text-tymeslot-500">{@tooltip}</p>
     </div>
     """
   end

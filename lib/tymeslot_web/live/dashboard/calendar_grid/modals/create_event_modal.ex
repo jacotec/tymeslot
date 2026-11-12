@@ -177,8 +177,9 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.Modals.CreateEventModal do
             phx-submit="add_create_guest"
             phx-target={@myself}
             class="flex gap-2"
+            novalidate
           >
-            <input
+            <.input
               type="email"
               id="create-guest-email-input"
               name="email"
@@ -186,7 +187,8 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.Modals.CreateEventModal do
               phx-change="update_create_guest_input"
               phx-target={@myself}
               placeholder="colleague@example.com"
-              class="flex-1 rounded-token-md border-tymeslot-300 text-token-sm focus:border-turquoise-500 focus:ring-turquoise-500"
+              class="flex-1 min-w-0"
+              errors={List.wrap(@creating_event[:guest_email_error])}
             />
             <.action_button type="submit" variant={:secondary} size={:sm}>
               {dgettext("dashboard_calendar_events", "Add")}
@@ -299,41 +301,42 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.Modals.CreateEventModal do
           phx-change="update_create_time"
           phx-target={@myself}
           class="flex flex-wrap items-center gap-1 text-token-sm text-tymeslot-600"
+          novalidate
         >
-          <input
-            type="date"
+          <.date_picker
             id="create-event-start-date"
             name="start-date"
             value={@creating_event.date}
-            class="bg-transparent border-0 border-b border-transparent hover:border-tymeslot-300 focus:border-turquoise-500 focus:ring-0 text-token-sm text-tymeslot-700 font-medium px-0 py-0 transition-colors cursor-text"
+            variant={:inline}
+            aria-label={dgettext("dashboard_calendar_events", "Start date")}
           />
-          <input
+          <.time_picker
             :if={!@creating_event[:all_day]}
-            type="time"
             id="create-event-start-time"
             name="start-time"
             value={
               EditWorkflow.format_time_value(@creating_event.start_hour, @creating_event.start_minute)
             }
-            class="bg-transparent border-0 border-b border-transparent hover:border-tymeslot-300 focus:border-turquoise-500 focus:ring-0 text-token-sm text-tymeslot-700 font-medium px-0 py-0 transition-colors cursor-text"
+            variant={:inline}
+            aria-label={dgettext("dashboard_calendar_events", "Start time")}
           />
           <span class="text-tymeslot-400">&ndash;</span>
-          <input
-            type="date"
+          <.date_picker
             id="create-event-end-date"
             name="end-date"
             value={@creating_event.end_date}
-            class="bg-transparent border-0 border-b border-transparent hover:border-tymeslot-300 focus:border-turquoise-500 focus:ring-0 text-token-sm text-tymeslot-700 font-medium px-0 py-0 transition-colors cursor-text"
+            variant={:inline}
+            aria-label={dgettext("dashboard_calendar_events", "End date")}
           />
-          <input
+          <.time_picker
             :if={!@creating_event[:all_day]}
-            type="time"
             id="create-event-end-time"
             name="end-time"
             value={
               EditWorkflow.format_time_value(@creating_event.end_hour, @creating_event.end_minute)
             }
-            class="bg-transparent border-0 border-b border-transparent hover:border-tymeslot-300 focus:border-turquoise-500 focus:ring-0 text-token-sm text-tymeslot-700 font-medium px-0 py-0 transition-colors cursor-text"
+            variant={:inline}
+            aria-label={dgettext("dashboard_calendar_events", "End time")}
           />
           <span
             :if={!@creating_event[:all_day]}
@@ -406,6 +409,7 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.Modals.CreateEventModal do
           phx-change="meeting_update_reminder_input"
           phx-submit="meeting_add_reminder"
           phx-target={@myself}
+          novalidate
         >
           <ReminderPicker.reminder_picker
             reminders={@reminder_picker.reminders}
@@ -471,8 +475,9 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.Modals.CreateEventModal do
             phx-submit="add_create_attendee"
             phx-target={@myself}
             class="flex gap-2"
+            novalidate
           >
-            <input
+            <.input
               type="email"
               id="create-attendee-email"
               name="email"
@@ -480,7 +485,8 @@ defmodule TymeslotWeb.Dashboard.CalendarGrid.Modals.CreateEventModal do
               phx-change="update_create_attendee_input"
               phx-target={@myself}
               placeholder="attendee@example.com"
-              class="flex-1 rounded-token-md border-tymeslot-300 text-token-sm focus:border-turquoise-500 focus:ring-turquoise-500"
+              class="flex-1 min-w-0"
+              errors={List.wrap(@creating_event[:attendee_error])}
             />
             <.action_button type="submit" variant={:secondary} size={:sm}>
               {dgettext("dashboard_calendar_events", "Add")}

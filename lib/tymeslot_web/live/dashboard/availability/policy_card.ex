@@ -131,7 +131,7 @@ defmodule TymeslotWeb.Dashboard.Availability.PolicyCard do
       </p>
 
       <%!-- Tag-based Selection --%>
-      <form id={@form_id} phx-change={@event} phx-debounce="300" phx-target={@myself}>
+      <form id={@form_id} phx-change={@event} phx-debounce="300" phx-target={@myself} novalidate>
         <div
           class="flex flex-wrap items-center gap-3"
           role="group"
@@ -159,11 +159,13 @@ defmodule TymeslotWeb.Dashboard.Availability.PolicyCard do
           <%!-- Custom input tag --%>
           <%= if @custom_mode or @buffer_value not in @presets do %>
             <div class="btn-tag-selector btn-tag-selector-primary--active p-0 overflow-hidden">
+              <%!-- raw-input: borderless number box inside the active Custom tag pill beside its unit, not a standalone field --%>
               <input
                 type="number"
                 min={@range.first}
                 max={@range.last}
                 step="5"
+                inputmode="numeric"
                 value={@buffer_value}
                 name={@param}
                 aria-labelledby={"#{@form_id}-label"}
@@ -222,6 +224,7 @@ defmodule TymeslotWeb.Dashboard.Availability.PolicyCard do
         phx-change="update_advance_booking_days"
         phx-debounce="300"
         phx-target={@myself}
+        novalidate
       >
         <div class="flex flex-wrap items-center gap-3">
           <%!-- Quick preset tags --%>
@@ -246,11 +249,13 @@ defmodule TymeslotWeb.Dashboard.Availability.PolicyCard do
           <%!-- Custom input tag --%>
           <%= if @custom_mode or @booking_days not in @presets do %>
             <div class="btn-tag-selector btn-tag-selector-primary--active p-0 overflow-hidden">
+              <%!-- raw-input: borderless number box inside the active Custom tag pill beside its unit, not a standalone field --%>
               <input
                 type="number"
                 min="1"
                 max="365"
                 step="1"
+                inputmode="numeric"
                 value={@booking_days}
                 name="advance_booking_days"
                 class="w-20 px-3 py-2 text-token-sm font-black bg-transparent border-0 focus:ring-0 focus:outline-hidden rounded-l-token-xl"
@@ -311,6 +316,7 @@ defmodule TymeslotWeb.Dashboard.Availability.PolicyCard do
         phx-change="update_min_advance_hours"
         phx-debounce="300"
         phx-target={@myself}
+        novalidate
       >
         <div class="flex flex-wrap items-center gap-3">
           <%!-- Quick preset tags --%>
@@ -335,11 +341,13 @@ defmodule TymeslotWeb.Dashboard.Availability.PolicyCard do
           <%!-- Custom input tag --%>
           <%= if @custom_mode or @notice_hours not in @presets do %>
             <div class="btn-tag-selector btn-tag-selector-primary--active p-0 overflow-hidden">
+              <%!-- raw-input: borderless number box inside the active Custom tag pill beside its unit, not a standalone field --%>
               <input
                 type="number"
                 min="0"
                 max="168"
                 step="1"
+                inputmode="numeric"
                 value={@notice_hours}
                 name="min_advance_hours"
                 class="w-20 px-3 py-2 text-token-sm font-black bg-transparent border-0 focus:ring-0 focus:outline-hidden rounded-l-token-xl"
