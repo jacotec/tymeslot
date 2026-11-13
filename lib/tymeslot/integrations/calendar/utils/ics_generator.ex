@@ -9,6 +9,7 @@ defmodule Tymeslot.Integrations.Calendar.IcsGenerator do
   alias Tymeslot.Integrations.Calendar.ICalBuilder.ContentLines
   alias Tymeslot.Integrations.Calendar.ICalBuilder.Format
   alias Tymeslot.Locales
+  alias Tymeslot.Meetings.AttendeeName
   alias Tymeslot.Payments
 
   @doc """
@@ -268,7 +269,9 @@ defmodule Tymeslot.Integrations.Calendar.IcsGenerator do
 
     case attendee_email do
       email when is_binary(email) and email != "" ->
-        attendee_name = Map.get(meeting_details, :attendee_name)
+        # No CN where the name is only the address again (a meeting the host
+        # manages names its first guest by their address).
+        attendee_name = AttendeeName.display_name(meeting_details)
 
         "SCHEDULE-AGENT=CLIENT#{cn_param(attendee_name)}:mailto:" <>
           Format.sanitize_ical_value(email)
@@ -350,6 +353,13 @@ defmodule Tymeslot.Integrations.Calendar.IcsGenerator do
       _no_branding -> nil
     end
   end
+
+  # A meeting held at a named place says so even when it also has a video
+  # room, as its emails do; the room keeps its CONFERENCE line and its link
+  # in the description.
+  defp determine_location(%{location_type: type, location: location})
+       when type in [:in_person, :custom] and is_binary(location) and location != "",
+       do: location
 
   defp determine_location(meeting_details) do
     meeting_url = Map.get(meeting_details, :meeting_url)

@@ -86,8 +86,7 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.RefundModal do
               {dgettext("dashboard_payments", "Refund type")}
             </legend>
             <label class="flex items-center gap-2 text-token-sm">
-              <%!-- raw-input: native radio inline with its label text; <.input> gives a radio text-field styling and drops checked --%>
-              <input
+              <.input
                 type="radio"
                 name="refund_type"
                 value="full"
@@ -99,8 +98,7 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.RefundModal do
               )})
             </label>
             <label class="flex items-center gap-2 text-token-sm">
-              <%!-- raw-input: native radio inline with its label text; <.input> gives a radio text-field styling and drops checked --%>
-              <input
+              <.input
                 type="radio"
                 name="refund_type"
                 value="partial"
@@ -126,11 +124,17 @@ defmodule TymeslotWeb.Dashboard.PaymentsSettings.RefundModal do
             value={@form.amount}
             errors={List.wrap(@error)}
           >
-            <:leading_icon>
+            <%!-- The tag sits on the side the locale writes the symbol. --%>
+            <:leading_icon :if={!Money.symbol_after?(Gettext.get_locale(TymeslotWeb.Gettext))}>
               <span class="text-tymeslot-400 font-bold text-token-sm tracking-tight whitespace-nowrap">
                 {Money.symbol(@payment.currency)}
               </span>
             </:leading_icon>
+            <:trailing_icon :if={Money.symbol_after?(Gettext.get_locale(TymeslotWeb.Gettext))}>
+              <span class="text-tymeslot-400 font-bold text-token-sm tracking-tight whitespace-nowrap">
+                {String.trim(Money.symbol(@payment.currency))}
+              </span>
+            </:trailing_icon>
           </.input>
         </form>
       </div>

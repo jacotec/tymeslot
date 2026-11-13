@@ -380,8 +380,28 @@ defmodule Tymeslot.Emails.AppointmentBuilder do
         meeting
         |> Map.get(:reminders)
         |> Reminders.normalize_reminders()
-        |> handle_normalized_reminders(meeting)
+        |> upcoming_reminders(meeting)
     end
+  end
+
+  # Describe only the reminders that will still be sent: one whose send time
+  # has already passed (a booking made two days ahead of a meeting with a
+  # three-day reminder) is never scheduled, so counting it would promise the
+  # attendee an email they will not get.
+  defp upcoming_reminders([], meeting), do: handle_normalized_reminders([], meeting)
+
+  defp upcoming_reminders(reminders, meeting) do
+    now = DateTime.utc_now()
+
+    case Enum.filter(reminders, &reminder_ahead?(&1, meeting.start_time, now)) do
+      [] -> legacy_reminder_details(nil)
+      upcoming -> handle_normalized_reminders(upcoming, meeting)
+    end
+  end
+
+  defp reminder_ahead?(%{value: value, unit: unit}, start_time, now) do
+    send_at = DateTime.add(start_time, -Reminders.reminder_interval_seconds(value, unit), :second)
+    DateTime.after?(send_at, now)
   end
 
   defp build_reminder_details_from_interval(%{value: value, unit: unit}) do
@@ -482,16 +502,19 @@ defmodule Tymeslot.Emails.AppointmentBuilder do
     end
   end
 
-  # Derive a display location from the meeting's fields. When a video URL is
-  # present the location is "Video Call" regardless of any physical location
-  # stored on the record. When nothing is set, return nil so the rendering
-  # layer (`Formatting.format_location/1`) substitutes the localised "TBD".
+  # Derive a display location from the meeting's fields. A meeting held at a
+  # named place keeps it even with a video room (`BookingRequestLocation.place/1`);
+  # otherwise, when a video URL is present, the location is "Video Call".
+  # When nothing is set, return nil so the rendering layer
+  # (`Formatting.format_location/1`) substitutes the localised "TBD".
   # Legacy meetings persisted the English placeholder before that change —
   # treat it as nil here so they also render translated.
   defp format_location(meeting) do
     cond do
+      place = BookingRequestLocation.place(meeting) -> place
       meeting.meeting_url -> "Video Call"
-      meeting.location in [nil, "", "To be determined"] -> nil
+      meeting.location in [nil, ""] -> nil
+      BookingRequestLocation.legacy_placeholder(meeting.location) == :to_be_determined -> nil
       true -> meeting.location
     end
   end
