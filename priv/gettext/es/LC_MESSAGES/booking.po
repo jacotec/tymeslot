@@ -847,11 +847,6 @@ msgstr "Más horarios"
 msgid "Continue to payment"
 msgstr "Continuar al pago"
 
-#: lib/tymeslot_web/themes/rhythm/scheduling/components/confirmation_component.ex
-#, elixir-autogen, elixir-format
-msgid "Paid"
-msgstr "Pagado"
-
 #: lib/tymeslot_web/themes/shared/components/meeting_price.ex
 #, elixir-autogen, elixir-format
 msgid "Price:"
