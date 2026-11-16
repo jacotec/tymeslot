@@ -6,10 +6,10 @@ defmodule Tymeslot.Availability.SharedOffer do
   and keeping only the times every one of them can make.
 
   Split out of `Offer` to keep it inside the size limit. Their calendars are
-  read by `Offer` itself, through the same cached fetch as the host's, and
-  handed in as a function.
+  read through the same cached fetch as the host's (`Offer.HostCalendar`).
   """
 
+  alias Tymeslot.Availability.Offer.{HostCalendar, Request}
   alias Tymeslot.Scheduling.SharedAvailability
 
   @doc "The users the request's `?with=` link names, or none."
@@ -41,5 +41,24 @@ defmodule Tymeslot.Availability.SharedOffer do
       config,
       events
     )
+  end
+
+  @doc """
+  `filter/7` with each guest's calendar read as the host's is, from their own
+  cached booking-window fetch; only the profile the fetch is made for
+  differs. When a booking is being rescheduled (`moving`), its invitation in
+  a guest's calendar is not a conflict.
+  """
+  @spec filter_with_calendars([term()], Date.t(), pos_integer(), {map(), term()}, list(), map()) ::
+          {:ok, [term()]} | {:error, term()}
+  def filter_with_calendars(slots, date, duration_minutes, {request, moving}, guests, config) do
+    events = &guest_events(&1, &2, request, moving)
+    filter(slots, date, duration_minutes, request, guests, config, events)
+  end
+
+  defp guest_events(guest, date, request, moving) do
+    with {:ok, events} <- HostCalendar.booking_window(%{request | profile: guest.profile}, date) do
+      {:ok, SharedAvailability.exclude_event(events, Request.moving_uid(moving))}
+    end
   end
 end
