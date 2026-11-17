@@ -9,7 +9,7 @@ defmodule Tymeslot.Availability.SharedOffer do
   read through the same cached fetch as the host's (`Offer.HostCalendar`).
   """
 
-  alias Tymeslot.Availability.Offer.{HostCalendar, Request}
+  alias Tymeslot.Availability.Offer.{HostCalendar, Moving}
   alias Tymeslot.Scheduling.SharedAvailability
 
   @doc "The users the request's `?with=` link names, or none."
@@ -58,7 +58,7 @@ defmodule Tymeslot.Availability.SharedOffer do
 
   defp guest_events(guest, date, request, moving) do
     with {:ok, events} <- HostCalendar.booking_window(%{request | profile: guest.profile}, date) do
-      {:ok, SharedAvailability.exclude_event(events, Request.moving_uid(moving))}
+      {:ok, SharedAvailability.exclude_event(events, Moving.uid(moving))}
     end
   end
 end

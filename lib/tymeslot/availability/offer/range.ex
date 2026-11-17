@@ -15,7 +15,7 @@ defmodule Tymeslot.Availability.Offer.Range do
   }
 
   alias Tymeslot.Availability.Offer
-  alias Tymeslot.Availability.Offer.{HostCalendar, Request}
+  alias Tymeslot.Availability.Offer.{HostCalendar, Moving, Request}
   alias Tymeslot.MeetingTypes.FixedDates
   alias Tymeslot.Scheduling.SharedAvailability
 
@@ -141,19 +141,21 @@ defmodule Tymeslot.Availability.Offer.Range do
          duration,
          events_source
        ) do
-    moving = Request.moving_meeting(request)
+    request = Moving.with_reach(request)
+    moving = Moving.meeting(request)
 
     with {:ok, events} <- HostCalendar.for_range(request, {start_date, end_date}, events_source) do
       duration_minutes = Request.bounded_duration(duration)
       meeting_type = request[:meeting_type]
 
       limit_checker =
-        Request.limit_checker(request, Request.moving_uid(moving), start_date, end_date)
+        Request.limit_checker(request, Moving.uid(moving), start_date, end_date)
 
       config =
         meeting_type
         |> Schedules.resolve_for(profile)
         |> Request.config(meeting_type, limit_checker, duration_minutes)
+        |> Request.reach_until(request)
         |> SharedAvailability.strictest_policy(SharedOffer.guests(request))
 
       config =

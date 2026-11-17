@@ -45,6 +45,7 @@ defmodule Tymeslot.Bookings.Reschedule do
   }
 
   alias Tymeslot.Availability.Schedules
+  alias Tymeslot.BookingSeries
   alias Tymeslot.Infrastructure.Logging.LogFormat
   alias Tymeslot.Meetings
   alias Tymeslot.Meetings.Approval
@@ -182,9 +183,13 @@ defmodule Tymeslot.Bookings.Reschedule do
   defp scheduling_config(meeting, meeting_type) do
     named_users = SharedAvailability.resolve_for_meeting(meeting)
 
+    # A session of a series may move as far as the series reaches, past the
+    # booking window, which binds its first session alone. A series takes no
+    # guests, so no named user narrows that again.
     config =
       meeting.organizer_user_id
       |> Schedules.booking_config(meeting_type)
+      |> BookingSeries.widen_window(meeting)
       |> SharedAvailability.strictest_policy(named_users)
 
     {named_users, config}
@@ -212,7 +217,7 @@ defmodule Tymeslot.Bookings.Reschedule do
   defp fetch_meeting(meeting_uid, organizer_user_id) do
     if Auth.deletion_pending?(organizer_user_id),
       do: {:error, :meeting_not_found},
-      else: MeetingQueries.get_meeting_by_uid_for_organizer(meeting_uid, organizer_user_id)
+      else: MeetingQueries.get_meeting_by_uid_for_attendee(meeting_uid, organizer_user_id)
   end
 
   # Everything a committed reschedule sets off outside the meeting row: fresh
