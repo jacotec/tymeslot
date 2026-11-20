@@ -81,6 +81,11 @@ defmodule Tymeslot.Availability.Offer do
       context says (`Offer.Moving.with_reach/1`) without naming it here.
     * `:cached_calendar` - read a range's calendar through the cache
       (`Offer.HostCalendar`), as a preview may; a booking page reads it fresh.
+    * `:organiser_view` - the organiser's own view of their offer (the
+      calendar's bookable layer, the setup preview), not a guest's page. A
+      calendar that cannot be read refuses it all the same, but turns no
+      guest away, so `Offer.HostCalendar` does not count it for
+      `Tymeslot.Integrations.HealthCheck.Alerting`.
     * `:shared_availability_guests` - users named in a `?with=` booking link
       (`Tymeslot.Scheduling.SharedAvailability`), who must be free as well,
       under the strictest scheduling rules of everyone involved.
@@ -95,6 +100,7 @@ defmodule Tymeslot.Availability.Offer do
           optional(:seat_move) => SeatMoveContext.t() | nil,
           optional(:demo_mode?) => boolean() | nil,
           optional(:cached_calendar) => boolean(),
+          optional(:organiser_view) => boolean(),
           optional(:window_until) => Date.t(),
           optional(:shared_availability_guests) => [SharedAvailability.Guest.t()]
         }
