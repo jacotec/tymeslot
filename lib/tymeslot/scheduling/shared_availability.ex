@@ -32,6 +32,7 @@ defmodule Tymeslot.Scheduling.SharedAvailability do
   alias Tymeslot.Auth.UserQueries
   alias Tymeslot.Availability.{Calculate, Schedules, TimeSlots}
   alias Tymeslot.Bookings.Validation
+  alias Tymeslot.Emails.RecipientLocale
   alias Tymeslot.Infrastructure.Logging.LogFormat
   alias Tymeslot.Infrastructure.Tasks
   alias Tymeslot.Integrations.Calendar.Events, as: CalendarEvents
@@ -51,7 +52,7 @@ defmodule Tymeslot.Scheduling.SharedAvailability do
     @moduledoc "A Tymeslot user whose availability a booking is checked against."
 
     @enforce_keys [:user_id, :username, :name, :email, :timezone, :profile, :schedule]
-    defstruct @enforce_keys ++ [schedule_data: %{}]
+    defstruct @enforce_keys ++ [locale: nil, schedule_data: %{}]
 
     @type t :: %__MODULE__{
             user_id: pos_integer(),
@@ -59,6 +60,7 @@ defmodule Tymeslot.Scheduling.SharedAvailability do
             name: String.t(),
             email: String.t(),
             timezone: String.t(),
+            locale: String.t() | nil,
             profile: map(),
             schedule: map() | nil,
             schedule_data: map()
@@ -218,6 +220,7 @@ defmodule Tymeslot.Scheduling.SharedAvailability do
          name: Profiles.display_name(profile) || profile.username,
          email: email,
          timezone: profile.timezone || Profiles.get_default_timezone(),
+         locale: RecipientLocale.locale_for(profile.user),
          profile: profile,
          schedule: Schedules.get_default(profile.id)
        }}
@@ -424,6 +427,32 @@ defmodule Tymeslot.Scheduling.SharedAvailability do
   @spec merge_guest_emails([Guest.t()], [String.t()]) :: [String.t()]
   def merge_guest_emails(guests, booker_emails) do
     Enum.map(guests, & &1.email) ++ (booker_emails || [])
+  end
+
+  @doc """
+  The guest entries a booking stores for `emails`, once sanitised. A user named
+  in the link goes in with their name, their own language and their timezone,
+  so their invitation and reminders read like their host emails rather than in
+  the booker's language. Any other address stays bare and follows the booker.
+  """
+  @spec guest_entries([String.t()], [Guest.t()]) :: [Guests.entry()]
+  def guest_entries(emails, guests) do
+    named = Map.new(guests, &{String.downcase(&1.email), &1})
+
+    Enum.map(emails, fn email ->
+      case Map.fetch(named, String.downcase(email)) do
+        {:ok, guest} ->
+          %{
+            email: email,
+            name: guest.name,
+            locale: Map.get(guest, :locale),
+            timezone: Map.get(guest, :timezone)
+          }
+
+        :error ->
+          email
+      end
+    end)
   end
 
   # A guest's own schedule, with the strictest policy of the whole booking and a

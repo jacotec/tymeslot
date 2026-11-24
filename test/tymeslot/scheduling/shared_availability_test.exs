@@ -380,6 +380,27 @@ defmodule Tymeslot.Scheduling.SharedAvailabilityTest do
     end
   end
 
+  describe "guest_entries/2" do
+    test "gives a named user their name, language and timezone, and leaves others bare" do
+      guests = [
+        %{email: "Michael@Example.com", name: "Michael", locale: "de", timezone: "Europe/Berlin"}
+      ]
+
+      assert SharedAvailability.guest_entries(
+               ["michael@example.com", "friend@example.com"],
+               guests
+             ) == [
+               %{
+                 email: "michael@example.com",
+                 name: "Michael",
+                 locale: "de",
+                 timezone: "Europe/Berlin"
+               },
+               "friend@example.com"
+             ]
+    end
+  end
+
   describe "merge_guest_emails/2" do
     test "puts the named users first so the guest cap cannot drop them" do
       guests = [%{email: "michael@example.com"}]

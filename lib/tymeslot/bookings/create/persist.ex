@@ -73,8 +73,9 @@ defmodule Tymeslot.Bookings.Create.Persist do
   @spec create_guests(MeetingSchema.t(), map()) :: {:ok, list()} | {:error, term()}
   def create_guests(meeting, booking_data) do
     if Policy.guests_allowed?(booking_data) do
-      booking_data
-      |> Map.get(:shared_availability_guests, [])
+      named = Map.get(booking_data, :shared_availability_guests, [])
+
+      named
       |> SharedAvailability.merge_guest_emails(
         booking_data
         |> Map.get(:guest_emails, [])
@@ -83,6 +84,7 @@ defmodule Tymeslot.Bookings.Create.Persist do
       # The type's limit caps the guests the booker typed in, above; the users
       # named in the link come on top, so only the hard cap applies here.
       |> Guests.sanitize_emails(meeting.attendee_email, Guests.max_guests())
+      |> SharedAvailability.guest_entries(named)
       |> then(&Guests.create_for_meeting(meeting.id, &1, :booker))
     else
       {:ok, []}

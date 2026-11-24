@@ -14,8 +14,12 @@ defmodule Tymeslot.Bookings.CreateSharedAvailabilityTest do
   import Tymeslot.AvailabilityTestHelpers
   import Tymeslot.Factory
 
+  alias Ecto.Changeset
   alias Tymeslot.Bookings.Create
   alias Tymeslot.Meetings.Guests
+  alias Tymeslot.Profiles
+  alias Tymeslot.Profiles.ProfileSchema
+  alias Tymeslot.Repo
 
   @afternoon %{is_available: true, start_time: ~T[13:00:00], end_time: ~T[17:00:00]}
 
@@ -77,6 +81,32 @@ defmodule Tymeslot.Bookings.CreateSharedAvailabilityTest do
     # by `SharedAvailability.merge_guest_emails/2`'s own test.
     emails = meeting.id |> Guests.list_for_meeting() |> Enum.map(& &1.email) |> Enum.sort()
     assert emails == Enum.sort([ctx.michael.email, "friend@example.com"])
+  end
+
+  test "writes a named user's guest emails in their own language, not the booker's", ctx do
+    ctx.michael |> Changeset.change(locale: "de") |> Repo.update!()
+
+    assert {:ok, meeting} =
+             Create.execute(
+               params(ctx, "14:00", %{
+                 guest_emails: ["friend@example.com"],
+                 attendee_locale: "pl"
+               }),
+               @form
+             )
+
+    assert meeting.attendee_locale == "pl"
+    guests = meeting.id |> Guests.list_for_meeting() |> Map.new(&{&1.email, &1})
+
+    michael_profile =
+      ProfileSchema |> Repo.get_by!(user_id: ctx.michael.id) |> Repo.preload(:user)
+
+    assert %{locale: "de", name: name, timezone: timezone} = guests[ctx.michael.email]
+    assert name == Profiles.display_name(michael_profile)
+    assert timezone == michael_profile.timezone
+
+    # A guest the booker typed in still follows the booker.
+    assert %{locale: nil, name: nil, timezone: nil} = guests["friend@example.com"]
   end
 
   test "refuses a time outside the named user's working hours", ctx do
